@@ -273,10 +273,22 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       PAINTSTRUCT ps;
       HDC hdc = BeginPaint(hwnd, &ps);
       pState = GetAppState(hwnd);
+      RECT rect;
 
       // All painting occurs here, between BeginPaint and EndPaint.
       FillRect(hdc, &ps.rcPaint, (HBRUSH) (COLOR_WINDOW+1));
-
+      GetClientRect(hwnd, &rect);
+      DrawTextEx(hdc,
+        L"FILE SPLICER\n\nThis application splices all the .wav audio files in a directory. "\
+          "The ordering of the files' contents in the output is determined by "\
+          "the names of the files, so please make sure each filename starts with the correct track number. "\
+          "Leading zeroes will be ignored. You can splice up to fifty files in a single directory.\n\n"\
+          "The output file (spliced-audio.wav) will be placed in the same folder as the input files.\n\n"\
+          "To get started, click 'Folder | Select' on the menu above.",
+        -1, &rect,
+        DT_CENTER | DT_EDITCONTROL | DT_WORDBREAK,
+        NULL
+      );
       EndPaint(hwnd, &ps);
     }
     return 0;
