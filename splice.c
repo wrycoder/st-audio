@@ -61,13 +61,13 @@ const char* ConvertPWSTRToConstChar(PWSTR wideString)
   char* buffer = (char*)malloc(length * sizeof(char));
   if (buffer == NULL)
   {
-    MessageBox(NULL, L"Filed to allocate memory for converted string", L"ERROR", MB_OK);
+    MessageBox(NULL, L"Failed to allocate memory for converted string", L"ERROR", MB_OK);
     cleanup();
     exit(1);
   }
   if (WideCharToMultiByte(CP_UTF8, 0, wideString, -1, buffer, length, NULL, NULL) == 0)
   {
-    MessageBox(NULL, L"Filed to convert wide string to UTF-8", L"ERROR", MB_OK);
+    MessageBox(NULL, L"Failed to convert wide string to UTF-8", L"ERROR", MB_OK);
     free(buffer);
     cleanup();
     exit(1);
