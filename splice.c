@@ -12,14 +12,18 @@
 #include <errno.h>
 #include <windows.h>
 #include <shobjidl.h>
+#include <shlobj.h>
 #include <objbase.h>
 #include <string.h>
 #include <strsafe.h>
+#include <string.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <assert.h>
 
 
 static sox_format_t * in, * out;
+static int cleanup();
 
 /**
  * General Utilities
@@ -44,6 +48,106 @@ static char const * str_time(double seconds)
     StringCchPrintf(string[i], cchDest, pszFormat, mins, seconds);
   }
   return string[i];
+}
+
+int compare_filenames(const void* a, const void* b)
+{
+  return strcmp(*(const char**)a, *(const char**)b);
+}
+
+const char* ConvertPWSTRToConstChar(PWSTR wideString)
+{
+  int length = WideCharToMultiByte(CP_UTF8, 0, wideString, -1, NULL, 0, NULL, NULL);
+  char* buffer = (char*)malloc(length * sizeof(char));
+  if (buffer == NULL)
+  {
+    MessageBox(NULL, L"Filed to allocate memory for converted string", L"ERROR", MB_OK);
+    cleanup();
+    exit(1);
+  }
+  if (WideCharToMultiByte(CP_UTF8, 0, wideString, -1, buffer, length, NULL, NULL) == 0)
+  {
+    MessageBox(NULL, L"Filed to convert wide string to UTF-8", L"ERROR", MB_OK);
+    free(buffer);
+    cleanup();
+    exit(1);
+  }
+  return buffer;
+}
+
+void list_files_sorted(PWSTR directory_path)
+{
+  DIR* directory;
+  struct dirent* entry;
+  char** filenames;
+  int file_count = 0;
+
+  directory = opendir(ConvertPWSTRToConstChar(directory_path));
+  if (directory == NULL)
+  {
+    size_t dirPathLength = wcslen(directory_path);
+    PWSTR buffer = (PWSTR)CoTaskMemAlloc((dirPathLength + 1) * sizeof(WCHAR));
+    wcscpy_s(buffer, sizeof(buffer), directory_path);
+    MessageBox(NULL, buffer, L"ERROR", MB_OK);
+    return;
+  }
+
+  while ((entry = readdir(directory)) != NULL)
+  {
+    const char* file_name = entry->d_name;
+    char file_path[MAX_PATH];
+    StringCbPrintf(file_path, sizeof(file_path), "%s\\%s", directory_path, file_name);
+
+    DWORD file_attributes = GetFileAttributes(file_path);
+    if (file_attributes != INVALID_FILE_ATTRIBUTES &&
+        !(file_attributes & FILE_ATTRIBUTE_DIRECTORY))
+    {
+      file_count++;
+    }
+  }
+
+  TCHAR msgbuf[75];
+  StringCbPrintf(msgbuf, sizeof(msgbuf), "File Count: %d\n", file_count);
+  MessageBox(NULL, msgbuf, L"DUDE", MB_OK);
+  filenames = (char**)malloc(file_count * sizeof(char*));
+
+  rewinddir(directory);
+
+  int i = 0;
+  while((entry = readdir(directory)) != NULL)
+  {
+    const char* file_name = entry->d_name;
+    char file_path[MAX_PATH];
+    StringCbPrintf(file_path, sizeof(file_path), "%s\\%s", directory_path, file_name);
+
+    DWORD file_attributes = GetFileAttributes(file_path);
+    if (file_attributes != INVALID_FILE_ATTRIBUTES &&
+        !(file_attributes & FILE_ATTRIBUTE_DIRECTORY))
+    {
+      filenames[i] = strdup(entry->d_name);
+      i++;
+    }
+  }
+
+  qsort(filenames, file_count, sizeof(char *), compare_filenames);
+
+  PWSTR buffer = (PWSTR)malloc((MAX_PATH + 1) * sizeof(wchar_t));
+  TCHAR result[MAX_PATH * 10] = L""; // Assuming an average filename length
+
+  for (int j = 0; j < file_count; j++)
+  {
+    StringCbPrintf(buffer, sizeof(buffer), "%s\n", filenames[j]);
+    MessageBox(NULL, buffer, L"Sorted Filenames", MB_OK);
+    StringCbCat(result, sizeof(result), buffer);
+    free(filenames[j]);
+  }
+
+  free(filenames);
+
+  MessageBox(NULL, result, L"Sorted Filenames", MB_OK);
+
+  free(buffer);
+  closedir(directory);
 }
 
 /**
@@ -101,18 +205,25 @@ void show_name_and_runtime(sox_format_t * in)
  *
  */
 
+ /* Global variables */
 HMENU hMenu;
 IFileDialog* pFileOpenDialog;
-// static const IID IID_IFileDialog = {0x42f85136, 0xdb7e, 0x439c, {0x85, 0xf1, 0xe4, 0x07, 0x5d, 0x13, 0x5f, 0xc8}};
-
-#define IDM_FILE_OPEN 1
-#define IDM_FILE_EXIT 3
+#define APP_WINDOW_HEIGHT   350
+#define APP_WINDOW_WIDTH    450
+#define IDM_FILE_OPEN       1
+#define IDM_FILE_EXIT       3
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+PWSTR              pszWorkingDirectory;
+
+/* Splice the audio files using SoX */
+DWORD WINAPI SpliceThreadProc() {
+  list_files_sorted(pszWorkingDirectory);
+  return 0;
+}
+
 #define NOMINMAX // from example on stackoverflow.com
-typedef struct StateInfo { 
-}StateInfo;
 
 int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -126,12 +237,6 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
   RegisterClass(&wc);
 
-  struct StateInfo *pState = malloc(sizeof(StateInfo));
-
-  if (pState == NULL)
-  {
-    return 0;
-  }
   // Initialize COM library
   HRESULT hr = CoInitialize(NULL);
   if (FAILED(hr))
@@ -146,12 +251,12 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     L"Splicing Audio",      // Window text
     WS_OVERLAPPEDWINDOW,    // Window style
     // Size and position
-    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+    CW_USEDEFAULT, CW_USEDEFAULT, APP_WINDOW_WIDTH, APP_WINDOW_HEIGHT,
 
     NULL,                   // Parent window
     hMenu,                  // Menu
     hInstance,              // Instance handle
-    pState                  // Additional application data
+    NULL                    // Additional application data
   );
 
   if (hwnd == NULL)
@@ -162,8 +267,8 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
   hMenu = CreateMenu();
   HMENU hFileMenu = CreateMenu();
 
-  AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hFileMenu, L"File");
-  AppendMenu(hFileMenu, MF_STRING, IDM_FILE_OPEN, L"Open");
+  AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hFileMenu, L"Folder");
+  AppendMenu(hFileMenu, MF_STRING, IDM_FILE_OPEN, L"Select");
   AppendMenu(hFileMenu, MF_STRING, IDM_FILE_EXIT, L"Exit");
 
   SetMenu(hwnd, hMenu);
@@ -179,33 +284,24 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     DispatchMessage(&msg);
   }
   // Uninitialize COM library
-  CoUninitialize(); 
+  CoUninitialize();
   return msg.wParam;
-}
-
-StateInfo* GetAppState(HWND hwnd)
-{
-  LONG_PTR ptr = GetWindowLongPtr(hwnd, GWLP_USERDATA);
-  StateInfo *pState = (StateInfo*)(ptr);
-  return pState;
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  StateInfo *pState;
   switch(uMsg)
   {
   case WM_CREATE:
     {
       int sox_result;
+      DWORD dwRet;
 
       CREATESTRUCT *pCreate = (CREATESTRUCT*)(lParam);
-      pState = (StateInfo*)(pCreate->lpCreateParams);
-      SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)pState);
       sox_result = sox_init();
       if (sox_result != SOX_SUCCESS)
       {
-        MessageBox(hwnd, 
+        MessageBox(hwnd,
                    L"An error occurred while initializing the sound system.",
                    L"ERROR",
                    MB_OK
@@ -224,6 +320,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             DWORD dwOptions;
             pFileOpenDialog->lpVtbl->GetOptions(pFileOpenDialog, &dwOptions);
             pFileOpenDialog->lpVtbl->SetOptions(pFileOpenDialog, dwOptions | FOS_PICKFOLDERS | FOS_FILEMUSTEXIST);
+            pFileOpenDialog->lpVtbl->SetOkButtonLabel(pFileOpenDialog, L"Select Folder");
 
             hr = pFileOpenDialog->lpVtbl->Show(pFileOpenDialog, hwnd);
             if (SUCCEEDED(hr))
@@ -235,14 +332,26 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 PWSTR pszFolderPath = NULL;
                 hr = pSelectedItem->lpVtbl->GetDisplayName(pSelectedItem, SIGDN_FILESYSPATH, &pszFolderPath);
                 size_t filePathLength = wcslen(pszFolderPath);
-                PWSTR filePathCopyManual = (PWSTR)CoTaskMemAlloc((filePathLength + 1) * sizeof(WCHAR));
-                if (filePathCopyManual != NULL)
+                pszWorkingDirectory = (PWSTR)CoTaskMemAlloc((filePathLength + 1) * sizeof(WCHAR));
+                if (pszWorkingDirectory != NULL)
                 {
-                  wcscpy_s(filePathCopyManual, filePathLength + 1, pszFolderPath);
-                  MessageBox(NULL, filePathCopyManual, L"Selected Folder", MB_OK);
+                  wcscpy_s(pszWorkingDirectory, filePathLength + 1, pszFolderPath);
+                  MessageBox(NULL, pszWorkingDirectory, L"Selected Folder", MB_OK);
+                  if (filePathLength < MAX_PATH)
+                  {
+                    SetCurrentDirectory(pszWorkingDirectory);
+                    DWORD dwThreadId;
+                    HANDLE hThread = CreateThread(NULL, 0, SpliceThreadProc, NULL, 0, &dwThreadId);
+                    if (hThread != NULL)
+                    {
+                      CloseHandle(hThread);
+                    } else {
+                      MessageBox(NULL, L"Unable to splice audio files.", L"ERROR", MB_OK);
+                    }
+                  } else {
+                    MessageBox(NULL, L"Selected folder is invalid", L"ERROR", MB_OK);
+                  }
                 }
-                CoTaskMemFree(pszFolderPath);
-                CoTaskMemFree(filePathCopyManual);
                 pSelectedItem->lpVtbl->Release(pSelectedItem);
               }
             }
@@ -264,7 +373,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       if (result != 0)
       {
         MessageBox(hwnd, L"An error occurred while shutting down", L"ERROR", MB_OK);
-      } 
+      }
       PostQuitMessage(0);
       return 0;
     }
@@ -272,7 +381,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
       PAINTSTRUCT ps;
       HDC hdc = BeginPaint(hwnd, &ps);
-      pState = GetAppState(hwnd);
       RECT rect;
 
       // All painting occurs here, between BeginPaint and EndPaint.
