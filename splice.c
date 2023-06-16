@@ -17,6 +17,7 @@
 #include <string.h>
 #include <strsafe.h>
 #include <string.h>
+#include <wchar.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <assert.h>
@@ -78,27 +79,39 @@ const char* ConvertPWSTRToConstChar(PWSTR wideString)
 void list_files_sorted(PWSTR directory_path)
 {
   DIR* directory;
-  struct dirent* entry;
+  struct _wdirent* entry;
   char** filenames;
   int file_count = 0;
+  PWSTR buffer;
 
-  directory = opendir(ConvertPWSTRToConstChar(directory_path));
+  directory = _wopendir(directory_path);
   if (directory == NULL)
   {
     size_t dirPathLength = wcslen(directory_path);
-    PWSTR buffer = (PWSTR)CoTaskMemAlloc((dirPathLength + 1) * sizeof(WCHAR));
+    buffer = (PWSTR)CoTaskMemAlloc((dirPathLength + 1) * sizeof(WCHAR));
     wcscpy_s(buffer, sizeof(buffer), directory_path);
-    MessageBox(NULL, buffer, L"ERROR", MB_OK);
+    MessageBox(NULL, buffer, L"DIRECTORY ERROR", MB_OK);
+    CoTaskMemFree(buffer);
     return;
   }
 
-  while ((entry = readdir(directory)) != NULL)
+  while ((entry = _wreaddir(directory)) != NULL)
   {
-    const char* file_name = entry->d_name;
-    char file_path[MAX_PATH];
-    StringCbPrintf(file_path, sizeof(file_path), "%s\\%s", directory_path, file_name);
+    const wchar_t* file_name = entry->d_name;
+    MessageBox(NULL, file_name, L"The File", MB_OK);
+    wchar_t file_path[MAX_PATH * sizeof(WCHAR)];
+    StringCbPrintfW(file_path, MAX_PATH, L"%s\\%s", directory_path, file_name);
+    MessageBox(NULL, file_path, L"The Full Path", MB_OK);
 
     DWORD file_attributes = GetFileAttributes(file_path);
+    if (file_attributes == 0)
+    {
+      MessageBox(NULL, L"Invalid file_attributes", L"ERROR", MB_OK);
+    }
+    if (file_attributes == -1)
+    {
+      MessageBox(NULL, L"File not found", L"ERROR", MB_OK);
+    }
     if (file_attributes != INVALID_FILE_ATTRIBUTES &&
         !(file_attributes & FILE_ATTRIBUTE_DIRECTORY))
     {
@@ -106,10 +119,12 @@ void list_files_sorted(PWSTR directory_path)
     }
   }
 
-  TCHAR msgbuf[75];
-  StringCbPrintf(msgbuf, sizeof(msgbuf), "File Count: %d\n", file_count);
+  size_t buffer_size = (wcslen(L"File Count: ") + 10) * sizeof(WCHAR);
+  PWSTR msgbuf = (PWSTR)CoTaskMemAlloc(buffer_size);
+  StringCbPrintfW(msgbuf, buffer_size, L"File Count: %d", file_count);
   MessageBox(NULL, msgbuf, L"DUDE", MB_OK);
   filenames = (char**)malloc(file_count * sizeof(char*));
+  CoTaskMemFree(msgbuf);
 
   rewinddir(directory);
 
@@ -131,7 +146,7 @@ void list_files_sorted(PWSTR directory_path)
 
   qsort(filenames, file_count, sizeof(char *), compare_filenames);
 
-  PWSTR buffer = (PWSTR)malloc((MAX_PATH + 1) * sizeof(wchar_t));
+  buffer = (PWSTR)malloc((MAX_PATH + 1) * sizeof(wchar_t));
   TCHAR result[MAX_PATH * 10] = L""; // Assuming an average filename length
 
   for (int j = 0; j < file_count; j++)
