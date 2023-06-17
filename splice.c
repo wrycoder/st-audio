@@ -10,7 +10,6 @@
 #include "splice.h"
 #include <stdlib.h>
 #include <errno.h>
-#include <windows.h>
 #include <shobjidl.h>
 #include <shlobj.h>
 #include <objbase.h>
