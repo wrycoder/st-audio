@@ -21,38 +21,31 @@
 #include <stdio.h>
 #include <assert.h>
 
-
-static sox_format_t * in, * out;
-static int cleanup();
-
 /**
  * General Utilities
  *
  */
-static char const * str_time(double seconds)
-{
-  static TCHAR string[16][50];
-  size_t cchDest = 50;
-  static int i;
-  LPCTSTR pszFormatWithHours = TEXT("%02i:%02i:%05.2f");
-  LPCTSTR pszFormat = TEXT("%02i:%05.2f");
-  int hours, mins = seconds / 60;
-  seconds -= mins * 60;
-  hours = mins / 60;
-  mins -= hours * 60;
-  i = (i+1) & 15;
-  if (hours > 0)
-  {
-    StringCchPrintf(string[i], cchDest, pszFormatWithHours, hours, mins, seconds);
-  } else {
-    StringCchPrintf(string[i], cchDest, pszFormat, mins, seconds);
-  }
-  return string[i];
-}
-
 int compare_filenames(const void* a, const void* b)
 {
   return strcmp(*(const char**)a, *(const char**)b);
+}
+
+int ends_with(const wchar_t *str, const wchar_t *suffix)
+{
+  if (!str || !suffix)
+    return 0;
+  size_t lenstr = wcslen(str);
+  size_t lensuffix = wcslen(suffix);
+  if (lensuffix > lenstr)
+    return 0;
+  return wcsncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
+}
+
+int is_wav_file(const wchar_t *str)
+{
+  if (ends_with(str, L".wav") || ends_with(str, L".WAV"))
+    return 1;
+  return 0;
 }
 
 const char* ConvertPWSTRToConstChar(PWSTR wideString)
@@ -61,13 +54,13 @@ const char* ConvertPWSTRToConstChar(PWSTR wideString)
   char* buffer = (char*)malloc(length * sizeof(char));
   if (buffer == NULL)
   {
-    MessageBox(NULL, L"Failed to allocate memory for converted string", L"ERROR", MB_OK);
+    report_error(NULL, -1, __LINE__);
     cleanup();
     exit(1);
   }
   if (WideCharToMultiByte(CP_UTF8, 0, wideString, -1, buffer, length, NULL, NULL) == 0)
   {
-    MessageBox(NULL, L"Failed to convert wide string to UTF-8", L"ERROR", MB_OK);
+    report_error(NULL, -1, __LINE__);
     free(buffer);
     cleanup();
     exit(1);
@@ -75,12 +68,24 @@ const char* ConvertPWSTRToConstChar(PWSTR wideString)
   return buffer;
 }
 
-void list_files_sorted(PWSTR directory_path)
+int count_files(wchar_t** filenames)
+{
+  size_t count = 0;
+  while (*filenames != NULL)
+  {
+    ++count;
+    ++filenames;
+  }
+  return count;
+}
+
+wchar_t** sort_files(PWSTR directory_path)
 {
   DIR* directory;
   struct _wdirent* entry;
-  char** filenames;
+  wchar_t** filenames;
   int file_count = 0;
+  sox_format_t * current_sound_file;
   PWSTR buffer;
 
   directory = _wopendir(directory_path);
@@ -89,129 +94,70 @@ void list_files_sorted(PWSTR directory_path)
     size_t dirPathLength = wcslen(directory_path);
     buffer = (PWSTR)CoTaskMemAlloc((dirPathLength + 1) * sizeof(WCHAR));
     wcscpy_s(buffer, sizeof(buffer), directory_path);
-    MessageBox(NULL, buffer, L"DIRECTORY ERROR", MB_OK);
+    report_error(NULL, -1, __LINE__);
     CoTaskMemFree(buffer);
-    return;
+    return NULL;
   }
 
   while ((entry = _wreaddir(directory)) != NULL)
   {
     const wchar_t* file_name = entry->d_name;
-    MessageBox(NULL, file_name, L"The File", MB_OK);
-    wchar_t file_path[MAX_PATH * sizeof(WCHAR)];
-    StringCbPrintfW(file_path, MAX_PATH, L"%s\\%s", directory_path, file_name);
-    MessageBox(NULL, file_path, L"The Full Path", MB_OK);
-
-    DWORD file_attributes = GetFileAttributes(file_path);
-    if (file_attributes == 0)
+    if (is_wav_file(file_name))
     {
-      MessageBox(NULL, L"Invalid file_attributes", L"ERROR", MB_OK);
-    }
-    if (file_attributes == -1)
-    {
-      MessageBox(NULL, L"File not found", L"ERROR", MB_OK);
-    }
-    if (file_attributes != INVALID_FILE_ATTRIBUTES &&
-        !(file_attributes & FILE_ATTRIBUTE_DIRECTORY))
-    {
-      file_count++;
-    }
-  }
-
-  size_t buffer_size = (wcslen(L"File Count: ") + 10) * sizeof(WCHAR);
-  PWSTR msgbuf = (PWSTR)CoTaskMemAlloc(buffer_size);
-  StringCbPrintfW(msgbuf, buffer_size, L"File Count: %d", file_count);
-  MessageBox(NULL, msgbuf, L"DUDE", MB_OK);
-  filenames = (char**)malloc(file_count * sizeof(char*));
-  CoTaskMemFree(msgbuf);
-
-  rewinddir(directory);
-
-  int i = 0;
-  while((entry = readdir(directory)) != NULL)
-  {
-    const char* file_name = entry->d_name;
-    char file_path[MAX_PATH];
-    StringCbPrintf(file_path, sizeof(file_path), "%s\\%s", directory_path, file_name);
-
-    DWORD file_attributes = GetFileAttributes(file_path);
-    if (file_attributes != INVALID_FILE_ATTRIBUTES &&
-        !(file_attributes & FILE_ATTRIBUTE_DIRECTORY))
-    {
-      filenames[i] = strdup(entry->d_name);
-      i++;
-    }
-  }
-
-  qsort(filenames, file_count, sizeof(char *), compare_filenames);
-
-  buffer = (PWSTR)malloc((MAX_PATH + 1) * sizeof(wchar_t));
-  TCHAR result[MAX_PATH * 10] = L""; // Assuming an average filename length
-
-  for (int j = 0; j < file_count; j++)
-  {
-    StringCbPrintf(buffer, sizeof(buffer), "%s\n", filenames[j]);
-    MessageBox(NULL, buffer, L"Sorted Filenames", MB_OK);
-    StringCbCat(result, sizeof(result), buffer);
-    free(filenames[j]);
-  }
-
-  free(filenames);
-
-  MessageBox(NULL, result, L"Sorted Filenames", MB_OK);
-
-  free(buffer);
-  closedir(directory);
-}
-
-/**
- * SoX-dependent Functions
- *
- */
-
-/* All done; tidy up... */
-static int cleanup()
-{
-  STRSAFE_LPSTR sox_wildcard = "libSoX.tmp*";
-  TCHAR szTempFileWildcard[MAX_PATH];
-  TCHAR szCurrentTempFileName[MAX_PATH];
-  WIN32_FIND_DATA fdFile;
-  HANDLE hFind = NULL;
-
-  if (in != NULL) sox_close(in);
-  if (out != NULL) sox_close(out);
-  sox_quit();
-  GetTempPathA(MAX_PATH, szTempFileWildcard);
-  StringCbCatA(szTempFileWildcard, MAX_PATH, sox_wildcard);
-  if((hFind = FindFirstFile(szTempFileWildcard, &fdFile)) != INVALID_HANDLE_VALUE)
-  {
-    do
-    {
-      /* FindFirstFile will always return "." and ".."
-       * as the first two directories. */
-      if(strcmp(fdFile.cFileName, ".") != 0
-        && strcmp(fdFile.cFileName, "..") != 0)
+      wchar_t file_path[MAX_PATH * sizeof(WCHAR) + 1];
+      StringCbPrintfW(file_path, (MAX_PATH * sizeof(WCHAR)), L"%s\\%s", directory_path, file_name);
+      DWORD file_attributes = GetFileAttributes(file_path);
+      if (file_attributes == 0)
       {
-        GetTempPathA(MAX_PATH, szCurrentTempFileName);
-        StringCbCatA(szCurrentTempFileName, MAX_PATH, fdFile.cFileName);
-        DeleteFileA(szCurrentTempFileName);
+        MessageBox(NULL, L"Invalid file_attributes", L"ERROR", MB_OK);
+      }
+      if (file_attributes == -1)
+      {
+        MessageBox(NULL, L"File not found", L"ERROR", MB_OK);
+      }
+      if (file_attributes != INVALID_FILE_ATTRIBUTES &&
+          !(file_attributes & FILE_ATTRIBUTE_DIRECTORY))
+      {
+        file_count++;
       }
     }
-    while(FindNextFile(hFind, &fdFile)); /* Find the next file. */
   }
-  return 0;
-}
 
-void show_name_and_runtime(sox_format_t * in)
-{
-  double secs;
-  uint64_t ws;
-  char const * text = NULL;
+  // size_t buffer_size = (wcslen(L"File Count: ") + 10) * sizeof(WCHAR);
+  // PWSTR msgbuf = (PWSTR)CoTaskMemAlloc(buffer_size);
+  // StringCbPrintfW(msgbuf, buffer_size, L"File Count: %d", file_count);
+  // MessageBox(NULL, msgbuf, L"SANITY CHECK", MB_OK);
+  // CoTaskMemFree(msgbuf);
 
-  ws = in->signal.length / max(in->signal.channels, 1);
-  secs = (double)ws / max(in->signal.rate, 1);
+  filenames = (wchar_t**)CoTaskMemAlloc(file_count * sizeof(wchar_t));
 
-  printf_s("FILE: %s: \t\t\t%-15.15s\n", in->filename, str_time(secs));
+  _wrewinddir(directory);
+
+  int i = 0;
+  while((entry = _wreaddir(directory)) != NULL)
+  {
+    const wchar_t* file_name = entry->d_name;
+    if (is_wav_file(file_name))
+    {
+      wchar_t file_path[MAX_PATH * sizeof(WCHAR) + 1];
+      StringCbPrintfW(file_path, (MAX_PATH * sizeof(WCHAR)), L"%s\\%s", directory_path, file_name);
+      DWORD file_attributes = GetFileAttributes(file_path);
+      if (file_attributes != INVALID_FILE_ATTRIBUTES &&
+          !(file_attributes & FILE_ATTRIBUTE_DIRECTORY))
+      {
+        filenames[i] = wcsdup(entry->d_name);
+        i++;
+      }
+    }
+  }
+
+  qsort(filenames, file_count, sizeof(wchar_t *), compare_filenames);
+
+  /* Add a final null terminator so we can calculate the number of files */
+  filenames[i] = NULL;
+  free(buffer);
+  closedir(directory);
+  return filenames;
 }
 
 /**
@@ -227,13 +173,37 @@ IFileDialog* pFileOpenDialog;
 #define IDM_FILE_OPEN       1
 #define IDM_FILE_EXIT       3
 
+void report_error(HWND hwnd, int errcode, int line_number)
+{
+  wchar_t *msg_template = L"ERROR %d at line %d in %s\nError Number: %d\n";
+  size_t buffer_size = (wcslen(msg_template) + 20) * sizeof(WCHAR);
+  PWSTR msgbuf = (PWSTR)CoTaskMemAlloc(buffer_size);
+  StringCbPrintfW(msgbuf, buffer_size, msg_template, errcode, line_number);
+  MessageBox(hwnd, msgbuf, L"ERROR", MB_OK);
+  CoTaskMemFree(msgbuf);
+}
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 PWSTR              pszWorkingDirectory;
 
 /* Splice the audio files using SoX */
-DWORD WINAPI SpliceThreadProc() {
-  list_files_sorted(pszWorkingDirectory);
+DWORD WINAPI SpliceThreadProc()
+{
+  wchar_t**       soundfiles;
+  int             index;
+
+  soundfiles = sort_files(pszWorkingDirectory);
+  if (soundfiles != NULL)
+  {
+    // Trim silence from beginning and end of each file
+    for (index = 0; index < count_files(soundfiles); index++)
+    {
+      trim_silence(soundfiles[index], DEFAULT_SILENCE_THRESHOLD);
+    }
+    // Concatenate and splice the files
+    CoTaskMemFree(soundfiles);
+  }
   return 0;
 }
 
@@ -315,11 +285,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       sox_result = sox_init();
       if (sox_result != SOX_SUCCESS)
       {
-        MessageBox(hwnd,
-                   L"An error occurred while initializing the sound system.",
-                   L"ERROR",
-                   MB_OK
-        );
+        report_error(hwnd, sox_result, __LINE__);
+        cleanup();
       }
       return sox_result;
     }
@@ -350,7 +317,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 if (pszWorkingDirectory != NULL)
                 {
                   wcscpy_s(pszWorkingDirectory, filePathLength + 1, pszFolderPath);
-                  MessageBox(NULL, pszWorkingDirectory, L"Selected Folder", MB_OK);
                   if (filePathLength < MAX_PATH)
                   {
                     SetCurrentDirectory(pszWorkingDirectory);
@@ -360,10 +326,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                       CloseHandle(hThread);
                     } else {
-                      MessageBox(NULL, L"Unable to splice audio files.", L"ERROR", MB_OK);
+                      report_error(hwnd, -1, __LINE__);
                     }
                   } else {
-                    MessageBox(NULL, L"Selected folder is invalid", L"ERROR", MB_OK);
+                    report_error(hwnd, filePathLength, __LINE__);
                   }
                 }
                 pSelectedItem->lpVtbl->Release(pSelectedItem);
@@ -386,7 +352,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       result = cleanup();
       if (result != 0)
       {
-        MessageBox(hwnd, L"An error occurred while shutting down", L"ERROR", MB_OK);
+        report_error(hwnd, result, __LINE__);
       }
       PostQuitMessage(0);
       return 0;
