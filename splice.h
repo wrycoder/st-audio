@@ -1,5 +1,7 @@
 #include <stdint.h>
 #include <math.h>
+#include <windows.h>
+#include "sox.h"
 
 /* Define the format specifier to use for uint64_t values. */
 #ifndef PRIu64 /* Maybe <inttypes.h> already defined this. */
@@ -24,5 +26,12 @@
 
 #define SOX_LIB_ERROR 399
 #define linear_to_dB(x) (log10(x) * 20)
+#define DEFAULT_SILENCE_THRESHOLD ".017"
 
 void show_stats(sox_format_t * in);
+void show_name_and_runtime(sox_format_t * in);
+wchar_t const * str_time(double seconds);
+void report_error(HWND hwnd, int errcode, int line_number);
+const char* ConvertPWSTRToConstChar(PWSTR wideString);
+void trim_silence(wchar_t * filename, char * threshold);
+int cleanup();
