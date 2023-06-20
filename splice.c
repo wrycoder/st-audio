@@ -173,6 +173,19 @@ IFileDialog* pFileOpenDialog;
 #define IDM_FILE_OPEN       1
 #define IDM_FILE_EXIT       3
 
+HCURSOR original_cursor;
+
+void set_wait_cursor()
+{
+  HCURSOR wait_cursor = LoadCursor(NULL, IDC_WAIT);
+  original_cursor = SetCursor(wait_cursor);
+}
+
+void restore_cursor()
+{
+  SetCursor(original_cursor);
+}
+
 void report_error(HWND hwnd, int errcode, int line_number)
 {
   wchar_t *msg_template = L"ERROR %d at line %d in %s\nError Number: %d\n";
