@@ -1,11 +1,40 @@
 #include "splice.h"
 #include <strsafe.h>
 #include <assert.h>
+#include <sys/stat.h>
 
 /**
  * SoX-dependent Functions
  *
  */
+
+typedef struct {
+  char * filename;
+
+  /* fopts */
+  char const * filetype;
+  sox_signalinfo_t signal;
+  sox_encodinginfo_t encoding;
+  sox_oob_t oob;
+  sox_bool no_glob;
+
+  sox_format_t * ft; /* libSoX file descriptor */
+  uint64_t volume_clips;
+} file_t;
+
+static file_t * * files = NULL; /* Array tracking input and output files */
+#define ofile files[file_count - 1]
+static size_t file_count = 0;
+static size_t input_count = 0;
+static size_t output_count = 0;
+
+static int success = 0;
+
+static void init_file(file_t * f)
+{
+  memset(f, 0, sizeof(*f));
+  sox_init_encodinginfo(&f->encoding);
+}
 
 static sox_format_t * in, * out;
 
