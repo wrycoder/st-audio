@@ -240,9 +240,9 @@ int cleanup()
       if(strcmp(fdFile.cFileName, ".") != 0
         && strcmp(fdFile.cFileName, "..") != 0)
       {
-        GetTempPathA(MAX_PATH, szCurrentTempFileName);
-        StringCbCatA(szCurrentTempFileName, MAX_PATH, fdFile.cFileName);
-        DeleteFileA(szCurrentTempFileName);
+        GetTempPathW(MAX_PATH, szCurrentTempFileName);
+        StringCbCatW(szCurrentTempFileName, MAX_PATH, fdFile.cFileName);
+        DeleteFileW(szCurrentTempFileName);
       }
     }
     while(FindNextFile(hFind, &fdFile)); /* Find the next file. */
