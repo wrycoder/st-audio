@@ -212,9 +212,10 @@ DWORD WINAPI SpliceThreadProc()
     // Trim silence from beginning and end of each file
     for (index = 0; index < count_files(soundfiles); index++)
     {
-      trim_silence(soundfiles[index], DEFAULT_SILENCE_THRESHOLD);
+      // trim_silence(soundfiles[index], DEFAULT_NOISE_DURATION, DEFAULT_SILENCE_THRESHOLD);
     }
     // Concatenate and splice the files
+    splice(soundfiles);
     CoTaskMemFree(soundfiles);
   }
   return 0;
