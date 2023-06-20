@@ -79,7 +79,7 @@ void show_name_and_runtime(sox_format_t * in)
   CoTaskMemFree(msgbuf);
 }
 
-void trim_silence(wchar_t * filename, char * threshold)
+void trim_silence(wchar_t * filename, char * duration, char * threshold)
 {
   wchar_t szNewPath[MAX_PATH * sizeof(wchar_t)];
   unsigned long sample_count = 0L;
@@ -112,7 +112,7 @@ void trim_silence(wchar_t * filename, char * threshold)
   free(e);
   e = sox_create_effect(sox_find_effect("silence"));
   args[0] = "1";
-  args[1] = "00:00:00.2";
+  args[1] = duration;
   args[2] = threshold;
   assert(sox_effect_options(e, 3, args) == SOX_SUCCESS);
   sox_result = sox_add_effect(chain, e, &in->signal, &in->signal);
