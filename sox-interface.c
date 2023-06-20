@@ -147,8 +147,38 @@ void trim_silence(wchar_t * filename, char * duration, char * threshold)
   sox_close(out);
   sox_close(in);
   StringCchPrintf(szNewPath, sizeof(szNewPath)/sizeof(szNewPath[0]), TEXT("%s"), ConvertPWSTRToConstChar(filename));
-  CopyFile("temp.wav", szNewPath, FALSE);
-  system("del temp.wav");
+  CopyFileA("temp.wav", szNewPath, FALSE);
+  DeleteFileA("temp.wav");
+}
+
+/*
+ * Splice audio files
+ *
+ * This is how I got it to work in zsh, with the Linux/MacOS sox executable...
+ *
+ *  sox babayaga.wav greatgate.wav _merged.wav splice -q `soxi -D babayaga.wav`,0.1
+ *
+ * NOTE: The sample files are from Mussorgsky's _Pictures_at_an_Exhibition_, at
+ * the transition from "The Hut on Fowl's Legs" to "The Great Gate at Kiev."
+ */
+void splice()
+{
+  unsigned long sample_count = 0L;
+  sox_effects_chain_t * chain;
+  sox_effect_t * e;
+  int sox_result = SOX_SUCCESS;
+  char * args[MAXIMUM_SPLICES + 3];
+  int i;
+/*
+  chain = sox_create_effects_chain(&in->encoding, &out->encoding);
+  e = sox_create_effect(sox_find_effect("input"));
+  args[0] = (char *)in, assert(sox_effect_options(e, 1, args) == SOX_SUCCESS);
+  assert(sox_add_effect(chain, e, &in->signal, &in->signal) == SOX_SUCCESS);
+  free(e);
+  e = sox_create_effect(sox_find_effect("splice"));
+  args[0] = '-q';
+  args[1] = 'foo';
+*/
 }
 
 /* All done; tidy up... */
