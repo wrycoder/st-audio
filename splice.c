@@ -297,6 +297,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
       CREATESTRUCT *pCreate = (CREATESTRUCT*)(lParam);
       sox_result = sox_init();
+      sox_quit_called = 0;
       if (sox_result != SOX_SUCCESS)
       {
         report_error(hwnd, sox_result, __LINE__);
