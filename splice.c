@@ -336,6 +336,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                   {
                     SetCurrentDirectory(pszWorkingDirectory);
                     DWORD dwThreadId;
+                    set_wait_cursor();
                     HANDLE hThread = CreateThread(NULL, 0, SpliceThreadProc, NULL, 0, &dwThreadId);
                     if (hThread != NULL)
                     {
@@ -343,6 +344,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     } else {
                       report_error(hwnd, -1, __LINE__);
                     }
+                    restore_cursor();
                   } else {
                     report_error(hwnd, filePathLength, __LINE__);
                   }
