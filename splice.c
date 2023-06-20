@@ -362,18 +362,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
     break;
+  case WM_CLOSE:
+    {
+      DestroyWindow(hwnd);
+    }
+    break;
   case WM_DESTROY:
     {
-      int result;
-
-      result = cleanup();
-      if (result != 0)
-      {
-        report_error(hwnd, result, __LINE__);
-      }
+      cleanup();
       PostQuitMessage(0);
-      return 0;
     }
+    break;
   case WM_PAINT:
     {
       PAINTSTRUCT ps;
