@@ -21,13 +21,15 @@
 #include <stdio.h>
 #include <assert.h>
 
+wchar_t * * filenames;
+
 /**
  * General Utilities
  *
  */
 int compare_filenames(const void* a, const void* b)
 {
-  return strcmp(*(const char**)a, *(const char**)b);
+  return strcmp(*(const wchar_t**)a, *(const wchar_t**)b);
 }
 
 int ends_with(const wchar_t *str, const wchar_t *suffix)
