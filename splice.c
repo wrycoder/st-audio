@@ -193,13 +193,29 @@ void restore_cursor()
   SetCursor(original_cursor);
 }
 
-void report_error(HWND hwnd, int errcode, int line_number)
+void report_error(HWND hwnd, int errcode, char * file, int line_number)
 {
-  wchar_t *msg_template = L"ERROR %d at line %d in %s\nError Number: %d\n";
-  size_t buffer_size = (wcslen(msg_template) + 20) * sizeof(WCHAR);
+  PWSTR filenamebuf;
+
+  wchar_t *msg_template = L"ERROR %d at line %d in %s\n";
+  int filename_length = MultiByteToWideChar(CP_ACP, 0, file, -1, NULL, 0);
+  filenamebuf = (PWSTR)CoTaskMemAlloc(filename_length * sizeof(WCHAR));
+  MultiByteToWideChar(CP_ACP, 0, file, -1, filenamebuf, filename_length);
+  size_t buffer_size = (wcslen(msg_template) + 20 + filename_length) * sizeof(WCHAR);
   PWSTR msgbuf = (PWSTR)CoTaskMemAlloc(buffer_size);
-  StringCbPrintfW(msgbuf, buffer_size, msg_template, errcode, line_number);
+  StringCbPrintfW(msgbuf, buffer_size, msg_template, errcode, line_number, filenamebuf);
   MessageBox(hwnd, msgbuf, L"ERROR", MB_OK);
+  CoTaskMemFree(filenamebuf);
+  CoTaskMemFree(msgbuf);
+}
+
+void report_current_action(HWND hwnd, const char* message)
+{
+  PWSTR msgbuf;
+  int message_length = MultiByteToWideChar(CP_ACP, 0, message, -1, NULL, 0);
+  msgbuf = (PWSTR)CoTaskMemAlloc((message_length * sizeof(WCHAR) + 1));
+  MultiByteToWideChar(CP_ACP, 0, message, -1, msgbuf, message_length);
+  MessageBox(hwnd, msgbuf, L"CURRENT ACTION", MB_OK);
   CoTaskMemFree(msgbuf);
 }
 
