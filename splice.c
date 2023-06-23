@@ -322,7 +322,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       sox_quit_called = 0;
       if (sox_result != SOX_SUCCESS)
       {
-        report_error(hwnd, sox_result, __LINE__);
+        report_error(hwnd, sox_result, __FILE__, __LINE__);
         cleanup();
       }
       return sox_result;
@@ -364,11 +364,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                       CloseHandle(hThread);
                     } else {
-                      report_error(hwnd, -1, __LINE__);
+                      report_error(hwnd, ST_ERROR, __FILE__, __LINE__);
                     }
                     restore_cursor();
                   } else {
-                    report_error(hwnd, filePathLength, __LINE__);
+                    report_error(hwnd, filePathLength, __FILE__, __LINE__);
                   }
                 }
                 pSelectedItem->lpVtbl->Release(pSelectedItem);
