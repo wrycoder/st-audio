@@ -88,17 +88,17 @@ void trim_silence(wchar_t * filename, char * duration, char * threshold)
   int sox_result = SOX_SUCCESS;
   char * args[10];
 
-  in = sox_open_read(ConvertPWSTRToConstChar(filename), NULL, NULL, NULL);
+  in = sox_open_read(convert_pwstr_to_const_char(filename), NULL, NULL, NULL);
   if (in == NULL)
   {
-    report_error(NULL, errno, __LINE__);
+    report_error(NULL, errno, __FILE__, __LINE__);
     cleanup();
     return;
   }
   out = sox_open_write("temp.wav", &in->signal, NULL, NULL, NULL, NULL);
   if (out == NULL)
   {
-    report_error(NULL, errno, __LINE__);
+    report_error(NULL, errno, __FILE__, __LINE__);
     cleanup();
     return;
   }
