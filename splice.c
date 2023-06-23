@@ -97,9 +97,10 @@ void load_and_sort_filenames(PWSTR directory_path)
     size_t dirPathLength = wcslen(directory_path);
     buffer = (PWSTR)CoTaskMemAlloc((dirPathLength + 1) * sizeof(WCHAR));
     wcscpy_s(buffer, sizeof(buffer), directory_path);
-    report_error(NULL, -1, __LINE__);
+    report_error(NULL, ST_ERROR, __FILE__, __LINE__);
     CoTaskMemFree(buffer);
-    return NULL;
+    buffer = NULL;
+    return;
   }
 
   while ((entry = _wreaddir(directory)) != NULL)
