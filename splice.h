@@ -24,18 +24,30 @@
 #endif
 #endif /* PRIuPTR */
 
-#define SOX_LIB_ERROR 399
+#define SOX_LIB_ERROR     399
+#define ST_ERROR          7734
+#define USER_ERROR        7735
 #define linear_to_dB(x) (log10(x) * 20)
 #define DEFAULT_SILENCE_THRESHOLD ".041"
 #define DEFAULT_NOISE_DURATION "00:00:00.2"
 #define DEFAULT_OUTPUT_FILENAME "spliced-audio.wav"
 #define MAXIMUM_SPLICES 50
+#define MAXIMUM_SAMPLES (size_t)2048 /* Typical operating system I/O buffer size */
+
+static sox_signalinfo_t st_default_signalinfo = {
+  44100,    /* samples per second */
+  2,        /* channels */
+  16,       /* bits per sample */
+  0,        /* length, not relevant for default */
+  NULL      /* Effects headroom multiplier */
+};
 
 void show_stats(sox_format_t * in);
 void show_name_and_runtime(sox_format_t * in);
 wchar_t const * str_time(double seconds);
-void report_error(HWND hwnd, int errcode, int line_number);
-const char* ConvertPWSTRToConstChar(PWSTR wideString);
+void report_error(HWND hwnd, int errcode, char* file, int line_number);
+void report_current_action(HWND, const char*);
+const char* convert_pwstr_to_const_char(PWSTR wideString);
 void trim_silence(wchar_t * filename, char * duration, char * threshold);
 void splice();
 static int sox_quit_called;
