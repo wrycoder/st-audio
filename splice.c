@@ -108,7 +108,7 @@ void load_and_sort_filenames(PWSTR directory_path)
     const wchar_t* file_name = entry->d_name;
     if (is_wav_file(file_name))
     {
-      wchar_t file_path[MAX_PATH * sizeof(WCHAR) + 1];
+      wchar_t file_path[(MAX_PATH * sizeof(WCHAR)) + 1];
       StringCbPrintfW(file_path, (MAX_PATH * sizeof(WCHAR)), L"%s\\%s", directory_path, file_name);
       DWORD file_attributes = GetFileAttributes(file_path);
       if (file_attributes == 0)
