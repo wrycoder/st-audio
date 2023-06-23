@@ -251,6 +251,7 @@ int cleanup()
   if (out != NULL) sox_close(out);
 
   /* Close the input and output files before exiting. */
+  /*
   for (i = 0; i < input_count; i++)
   {
     if (files[i]->ft)
@@ -260,25 +261,28 @@ int cleanup()
     free(files[i]->filename);
     free(files[i]);
   }
-
+  */
+  /*
   if (file_count)
   {
     if (ofile->ft)
     {
       if (!success && ofile->ft->io_type == lsx_io_file)
-      { /* If we failed part way through */
-        struct stat st; /* writing a normal file, remove it. */
+      { // If we failed part way through
+        struct stat st; // writing a normal file, remove it.
         if (!stat(ofile->ft->filename, &st) &&
             (st.st_mode & S_IFMT) == S_IFREG)
           unlink(ofile->ft->filename);
       }
-      sox_close(ofile->ft); /* Assume we can unlink a file before closing it. */
+      sox_close(ofile->ft); // Assume we can unlink a file before closing it.
     }
     free(ofile->filename);
     free(ofile);
   }
+  */
 
-  free(files);
+  if (files != NULL)
+    free(files);
 
   if (sox_quit_called == 0)
   {
