@@ -70,25 +70,26 @@ const char* convert_pwstr_to_const_char(PWSTR wideString)
   return buffer;
 }
 
-int count_files(wchar_t** filenames)
+int count_files()
 {
   size_t count = 0;
-  while (*filenames != NULL)
+  wchar_t **current = filenames;
+
+  while (*current != NULL)
   {
     ++count;
-    ++filenames;
+    ++current;
   }
   return count;
 }
 
-wchar_t** sort_files(PWSTR directory_path)
+void load_and_sort_filenames(PWSTR directory_path)
 {
   DIR* directory;
   struct _wdirent* entry;
-  wchar_t** filenames;
   int file_count = 0;
   sox_format_t * current_sound_file;
-  PWSTR buffer;
+  PWSTR buffer = NULL;
 
   directory = _wopendir(directory_path);
   if (directory == NULL)
