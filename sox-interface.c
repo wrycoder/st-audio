@@ -118,7 +118,7 @@ void trim_silence(wchar_t * filename, char * duration, char * threshold)
   sox_result = sox_add_effect(chain, e, &in->signal, &in->signal);
   if (sox_result != SOX_SUCCESS)
   {
-    report_error(NULL, sox_result, __LINE__);
+    report_error(NULL, sox_result, __FILE__, __LINE__);
     cleanup();
     return;
   }
@@ -132,7 +132,7 @@ void trim_silence(wchar_t * filename, char * duration, char * threshold)
   sox_result = sox_add_effect(chain, e, &in->signal, &in->signal);
   if (sox_result != SOX_SUCCESS)
   {
-    report_error(NULL, sox_result, __LINE__);
+    report_error(NULL, sox_result, __FILE__, __LINE__);
     cleanup();
     return;
   }
