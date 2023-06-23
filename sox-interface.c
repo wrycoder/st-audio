@@ -160,25 +160,81 @@ void trim_silence(wchar_t * filename, char * duration, char * threshold)
  *
  * NOTE: The sample files are from Mussorgsky's _Pictures_at_an_Exhibition_, at
  * the transition from "The Hut on Fowl's Legs" to "The Great Gate at Kiev."
+ *
+ * I think example4.c in the libsox package is closest to what I am trying to do.
  */
-void splice()
+void splice(wchar_t * * wfile_names, int file_count)
 {
-  unsigned long sample_count = 0L;
-  sox_effects_chain_t * chain;
   sox_effect_t * e;
+  sox_format_t * in_file, * out_file;
+  sox_signalinfo_t in_signal, out_signal;
+  char * * file_names;
+  sox_sample_t samples[MAXIMUM_SAMPLES]; /* Temporary store while copying */
+  size_t number_read;
+  const char * current_filename;
   int sox_result = SOX_SUCCESS;
-  char * args[MAXIMUM_SPLICES + 3];
   int i;
-/*
-  chain = sox_create_effects_chain(&in->encoding, &out->encoding);
-  e = sox_create_effect(sox_find_effect("input"));
-  args[0] = (char *)in, assert(sox_effect_options(e, 1, args) == SOX_SUCCESS);
-  assert(sox_add_effect(chain, e, &in->signal, &in->signal) == SOX_SUCCESS);
-  free(e);
+
+  file_names = malloc(sizeof(char *));
+  for (i = 0; i < file_count; ++i)
+  {
+    current_filename = convert_pwstr_to_const_char(wfile_names[i]);
+    if (current_filename != NULL)
+    {
+      report_current_action(NULL, "I have found a filename");
+      report_current_action(NULL, current_filename);
+    } else {
+      report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+      cleanup();
+      return;
+    }
+    file_names[i] = (char *)malloc(sizeof(char) * (strlen(current_filename) + 1));
+    StringCbCopyA(file_names[i], strlen(current_filename), current_filename);
+  }
+
+  report_current_action(NULL, file_names[0]);
+  in_file = sox_open_read(file_names[0], &in_signal, NULL, NULL);
+  if (in_file == NULL)
+  {
+    report_error(NULL, SOX_LIB_ERROR, __FILE__, __LINE__);
+    cleanup();
+    return;
+  }
+  out_signal = in_signal;
+  out_file = sox_open_write(DEFAULT_OUTPUT_FILENAME, &out_signal, NULL, NULL, NULL, NULL);
+  if (out_file == NULL)
+  {
+    report_error(NULL, SOX_LIB_ERROR, __FILE__, __LINE__);
+    cleanup();
+    return;
+  }
+  if ( (in_file->signal.channels != out_file->signal.channels) ||
+        (in_file->signal.rate != out_file->signal.rate) )
+  {
+    sox_close(out_file);
+    report_error(NULL, USER_ERROR, __FILE__, __LINE__);
+    cleanup();
+    return;
+  }
+
   e = sox_create_effect(sox_find_effect("splice"));
-  args[0] = '-q';
-  args[1] = 'foo';
-*/
+  char * splice_options[] = { "fade", "q", "leeway", "0.5", NULL };
+  sox_effect_options(e, file_count, file_names);
+  sox_effect_options(e, 4, splice_options);
+  sox_add_effect(in_file, e, &in_signal, &out_signal);
+  sox_flow_effects(e, in_file, out_file);
+
+  sox_delete_effects_chain(e);
+  sox_close(in_file);
+  sox_close(out_file);
+
+  for (i = 0; i < file_count; ++i)
+  {
+    free((char*)(file_names[i]));
+  }
+
+  if (file_names != NULL)
+    free(file_names);
 }
 
 /* All done; tidy up... */
