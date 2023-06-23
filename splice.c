@@ -226,21 +226,19 @@ PWSTR              pszWorkingDirectory;
 /* Splice the audio files using SoX */
 DWORD WINAPI SpliceThreadProc()
 {
-  wchar_t**       soundfiles;
-  int             index;
-
-  soundfiles = sort_files(pszWorkingDirectory);
-  if (soundfiles != NULL)
+  load_and_sort_filenames(pszWorkingDirectory);
+  if (filenames != NULL)
   {
-    // Trim silence from beginning and end of each file
-    for (index = 0; index < count_files(soundfiles); index++)
+    //splice(filenames);
+    wchar_t **current = filenames;
+    while (*current != NULL)
     {
-      // trim_silence(soundfiles[index], DEFAULT_NOISE_DURATION, DEFAULT_SILENCE_THRESHOLD);
+      CoTaskMemFree(*current);
+      ++current;
     }
-    // Concatenate and splice the files
-    splice(soundfiles);
-    CoTaskMemFree(soundfiles);
+    CoTaskMemFree(filenames);
   }
+
   return 0;
 }
 
