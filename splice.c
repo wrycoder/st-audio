@@ -143,13 +143,14 @@ void load_and_sort_filenames(PWSTR directory_path)
     const wchar_t* file_name = entry->d_name;
     if (is_wav_file(file_name))
     {
-      wchar_t file_path[MAX_PATH * sizeof(WCHAR) + 1];
+      wchar_t file_path[(MAX_PATH * sizeof(WCHAR)) + 1];
       StringCbPrintfW(file_path, (MAX_PATH * sizeof(WCHAR)), L"%s\\%s", directory_path, file_name);
       DWORD file_attributes = GetFileAttributes(file_path);
       if (file_attributes != INVALID_FILE_ATTRIBUTES &&
           !(file_attributes & FILE_ATTRIBUTE_DIRECTORY))
       {
-        filenames[i] = wcsdup(entry->d_name);
+        filenames[i] = (wchar_t*)CoTaskMemAlloc((MAX_PATH * sizeof(wchar_t)) + 1);
+        StringCbPrintfW(filenames[i], MAX_PATH * sizeof(wchar_t), file_path);
         i++;
       }
     }
@@ -158,10 +159,12 @@ void load_and_sort_filenames(PWSTR directory_path)
   qsort(filenames, file_count, sizeof(wchar_t *), compare_filenames);
 
   /* Add a final null terminator so we can calculate the number of files */
-  filenames[i] = NULL;
-  free(buffer);
-  closedir(directory);
-  return filenames;
+  filenames[file_count] = NULL;
+  _wclosedir(directory);
+
+  char numstring[25];
+  StringCbPrintfA(numstring, 24, "filecount: %d", count_files());
+  report_current_action(NULL, numstring);
 }
 
 /**
