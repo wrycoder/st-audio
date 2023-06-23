@@ -146,7 +146,7 @@ void trim_silence(wchar_t * filename, char * duration, char * threshold)
   sox_delete_effects_chain(chain);
   sox_close(out);
   sox_close(in);
-  StringCchPrintf(szNewPath, sizeof(szNewPath)/sizeof(szNewPath[0]), TEXT("%s"), ConvertPWSTRToConstChar(filename));
+  StringCchPrintf(szNewPath, sizeof(szNewPath)/sizeof(szNewPath[0]), TEXT("%s"), convert_pwstr_to_const_char(filename));
   CopyFileA("temp.wav", szNewPath, FALSE);
   DeleteFileA("temp.wav");
 }
