@@ -247,6 +247,7 @@ DWORD WINAPI SpliceThreadProc()
 int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
   const wchar_t CLASS_NAME[] = L"Splicing Audio Files";
+  filenames = NULL;
 
   WNDCLASS wc = { };
 
