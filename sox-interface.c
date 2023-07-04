@@ -164,67 +164,147 @@ void trim_silence(wchar_t * filename, char * duration, char * threshold)
  */
 void splice(wchar_t * * wfile_names, int file_count)
 {
-  sox_effect_t * e;
-  sox_format_t * in_file, * out_file;
-  sox_signalinfo_t in_signal, out_signal;
-  char * * file_names;
+  sox_effect_t* splice_effect;
+  sox_effects_chain_t * chain;
+  sox_format_t** in_files;
+  sox_format_t* out_file;
+  char * * file_names = NULL;
   sox_sample_t samples[MAXIMUM_SAMPLES]; /* Temporary store while copying */
   size_t number_read;
   const char * current_filename;
   int sox_result = SOX_SUCCESS;
   int i;
+  uint64_t first_file_ws; /* length of first file in samples */
+  double first_file_secs; /* length of first file in seconds */
 
-  file_names = malloc(sizeof(char *));
+  // For testing...
+  const int msg_length = 500;
+  wchar_t status_msg[msg_length + 1];
+  int filename_length;
+  wchar_t *filenamebuf;
+  // End of testing variables...
+
+  file_names = malloc(sizeof(char *) * file_count);
+
+  if (file_names == NULL)
+  {
+    report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+    cleanup();
+    return;
+  }
+
   for (i = 0; i < file_count; ++i)
   {
     current_filename = convert_pwstr_to_const_char(wfile_names[i]);
-    if (current_filename != NULL)
+    if (current_filename == NULL)
     {
-      report_current_action(NULL, "I have found a filename");
-      report_current_action(NULL, current_filename);
-    } else {
       report_error(NULL, ST_ERROR, __FILE__, __LINE__);
       cleanup();
       return;
     }
-    file_names[i] = (char *)malloc(sizeof(char) * (strlen(current_filename) + 1));
-    StringCbCopyA(file_names[i], strlen(current_filename), current_filename);
+    file_names[i] = (char *)malloc((sizeof(char) * strlen(current_filename)) + 1);
+    if (file_names[i] == NULL)
+    {
+      report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+      cleanup();
+      return;
+    }
+    StringCbCopyA(file_names[i], strlen(current_filename) + 1, current_filename);
   }
 
-  report_current_action(NULL, file_names[0]);
-  in_file = sox_open_read(file_names[0], &in_signal, NULL, NULL);
-  if (in_file == NULL)
+  in_files = (sox_format_t**)lsx_malloc(file_count * sizeof(sox_format_t*));
+  if (in_files == NULL)
   {
     report_error(NULL, SOX_LIB_ERROR, __FILE__, __LINE__);
     cleanup();
     return;
   }
-  out_signal = in_signal;
-  out_file = sox_open_write(DEFAULT_OUTPUT_FILENAME, &out_signal, NULL, NULL, NULL, NULL);
+  for (size_t n = 0; n < file_count; ++n)
+  {
+    in_files[n] = sox_open_read(file_names[n], &st_default_signalinfo, NULL, NULL);
+    if (in_files[n] == NULL)
+    {
+      report_error(NULL, SOX_LIB_ERROR, __FILE__, __LINE__);
+      for (size_t j = 0; j < n; ++j)
+        sox_close(in_files[j]);
+      free(in_files);
+      cleanup();
+      return;
+    }
+    filename_length = MultiByteToWideChar(CP_ACP, 0, in_files[n]->filename, -1, NULL, 0);
+    filenamebuf = (PWSTR)CoTaskMemAlloc(filename_length * sizeof(WCHAR));
+    MultiByteToWideChar(CP_ACP, 0, in_files[n]->filename, -1, filenamebuf, filename_length);
+    uint64_t ws = in_files[n]->signal.length / max(in_files[n]->signal.channels, 1);
+    double secs = (double)ws / max(in_files[n]->signal.rate, 1);
+
+    StringCchPrintfW(status_msg, msg_length * sizeof(wchar_t), 
+      L"FILE: %s | ENCODING: %d | SAMPLESIZE: %u | RATE: %g | CHANNELS: %u | RUNTIME: %s", 
+      filenamebuf,
+      in_files[n]->encoding.encoding,
+      in_files[n]->encoding.bits_per_sample,
+      in_files[n]->signal.rate,
+      in_files[n]->signal.channels,
+      str_time(secs)
+    );
+    report_current_action(NULL, convert_pwstr_to_const_char(status_msg));
+    CoTaskMemFree(filenamebuf);
+  }
+  first_file_ws = in_files[0]->signal.length / max(in_files[0]->signal.channels, 1);
+  first_file_secs = (double)first_file_ws / max(in_files[0]->signal.rate, 1);
+  out_file = sox_open_write(DEFAULT_OUTPUT_FILENAME, &in_files[0]->signal, NULL, NULL, NULL, NULL);
   if (out_file == NULL)
   {
     report_error(NULL, SOX_LIB_ERROR, __FILE__, __LINE__);
+    for (size_t x = 0; x < file_count; ++x)
+      sox_close(in_files[x]);
+    free(in_files);
     cleanup();
     return;
   }
-  if ( (in_file->signal.channels != out_file->signal.channels) ||
-        (in_file->signal.rate != out_file->signal.rate) )
+  // status_msg[msg_length]
+
+//  filename_length = MultiByteToWideChar(CP_ACP, 0, out_file->filename, -1, NULL, 0);
+//  filenamebuf = (PWSTR)CoTaskMemAlloc(filename_length * sizeof(WCHAR));
+//  MultiByteToWideChar(CP_ACP, 0, out_file->filename, -1, filenamebuf, filename_length);
+//
+//  StringCchPrintfW(status_msg, msg_length * sizeof(wchar_t), 
+//    L"FILE: %s | ENCODING: %d | SAMPLESIZE: %u | RATE: %g | CHANNELS: %u", 
+//    filenamebuf,
+//    out_file->encoding.encoding,
+//    out_file->encoding.bits_per_sample,
+//    out_file->signal.rate,
+//    out_file->signal.channels
+//  );
+//  report_current_action(NULL, convert_pwstr_to_const_char(status_msg));
+//  CoTaskMemFree(filenamebuf);
+
+  chain = sox_create_effects_chain(&in_files[0]->encoding, &out_file->encoding);
+  report_current_action(NULL, "Now adding input effect to first file");
+  sox_add_effect(chain, sox_create_effect(sox_find_effect("input")), &in_files[0]->signal, &in_files[0]->signal);
+  splice_effect = sox_create_effect(sox_find_effect("splice"));
+  /*  sox babayaga.wav greatgate.wav _merged.wav splice -q `soxi -D babayaga.wav`,0.1 */
+  char file_count_str[10];
+  snprintf(file_count_str, sizeof(file_count_str), "%d", file_count);
+  char* splice_args[] = { "-q", str_time(first_file_secs), DEFAULT_SPLICE_OVERLAP, NULL };
+  report_current_action(NULL, "Now adding splice options");
+  int args_added = sox_effect_options(splice_effect, 3, splice_args);
+  report_current_action(NULL, "Now adding splice effect to first input file");
+  sox_add_effect(chain, splice_effect, &in_files[0]->signal, &in_files[0]->signal);
+  report_current_action(NULL, "Now adding output effect to last file");
+  sox_add_effect(chain, sox_create_effect(sox_find_effect("output")), &in_files[file_count-1]->signal, &out_file->signal);
+  report_current_action(NULL, "About to flow");
+  int result = sox_flow_effects(chain, NULL, NULL);
+  if (result != SOX_SUCCESS)
   {
-    sox_close(out_file);
-    report_error(NULL, USER_ERROR, __FILE__, __LINE__);
-    cleanup();
-    return;
+    const char* error_message = sox_strerror(result);
+    report_current_action(NULL, error_message);
+    report_error(NULL, result, __FILE__, __LINE__);
   }
-
-  e = sox_create_effect(sox_find_effect("splice"));
-  char * splice_options[] = { "fade", "q", "leeway", "0.5", NULL };
-  sox_effect_options(e, file_count, file_names);
-  sox_effect_options(e, 4, splice_options);
-  sox_add_effect(in_file, e, &in_signal, &out_signal);
-  sox_flow_effects(e, in_file, out_file);
-
-  sox_delete_effects_chain(e);
-  sox_close(in_file);
+  report_current_action(NULL, "It flowed");
+  sox_delete_effects_chain(chain);
+  for (size_t i = 0; i < file_count; ++i)
+    sox_close(in_files[i]);
+  free(in_files);
   sox_close(out_file);
 
   for (i = 0; i < file_count; ++i)
