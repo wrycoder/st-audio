@@ -360,9 +360,6 @@ int cleanup()
   }
   */
 
-  if (files != NULL)
-    free(files);
-
   if (sox_quit_called == 0)
   {
     sox_quit();
