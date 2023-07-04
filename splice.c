@@ -1,6 +1,8 @@
-/* Splice
+/* splice.c
  *
  * (c) 2023 Michael Toulouse
+ *
+ * Main entry point for the Splice application.
  *
  */
 
