@@ -258,6 +258,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
   wc.lpfnWndProc    = WindowProc;
   wc.hInstance      = hInstance;
   wc.lpszClassName  = CLASS_NAME;
+  wc.style          = CS_VREDRAW | CS_HREDRAW;
 
   RegisterClass(&wc);
 
