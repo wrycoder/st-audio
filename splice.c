@@ -164,9 +164,9 @@ void load_and_sort_filenames(PWSTR directory_path)
   filenames[file_count] = NULL;
   _wclosedir(directory);
 
-  char numstring[25];
-  StringCbPrintfA(numstring, 24, "filecount: %d", count_files());
-  report_current_action(NULL, numstring);
+  // char numstring[25];
+  // StringCbPrintfA(numstring, 24, "filecount: %d", count_files());
+  // report_current_action(NULL, numstring);
 }
 
 /**
