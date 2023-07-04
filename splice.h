@@ -1,3 +1,11 @@
+/* splice.h
+ *
+ * (c) 2023 Michael Toulouse
+ *
+ * Global definitions and function prototypes for the Splice application.
+ *
+ */
+
 #include <stdint.h>
 #include <math.h>
 #include <windows.h>
