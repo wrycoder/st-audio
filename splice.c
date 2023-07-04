@@ -177,10 +177,12 @@ void load_and_sort_filenames(PWSTR directory_path)
  /* Global variables */
 HMENU hMenu;
 IFileDialog* pFileOpenDialog;
-#define APP_WINDOW_HEIGHT   350
-#define APP_WINDOW_WIDTH    450
-#define IDM_FILE_OPEN       1
-#define IDM_FILE_EXIT       3
+#define APP_WINDOW_HEIGHT         350
+#define APP_WINDOW_WIDTH          450
+#define TEXT_MARGIN_VERTICAL      10
+#define TEXT_MARGIN_HORIZONTAL    10
+#define IDM_FILE_OPEN             1
+#define IDM_FILE_EXIT             3
 
 HCURSOR original_cursor;
 
