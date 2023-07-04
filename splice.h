@@ -39,6 +39,7 @@
 #define DEFAULT_SILENCE_THRESHOLD ".041"
 #define DEFAULT_NOISE_DURATION "00:00:00.2"
 #define DEFAULT_OUTPUT_FILENAME "spliced-audio.wav"
+#define DEFAULT_SPLICE_OVERLAP ".1"
 #define MAXIMUM_SPLICES 50
 #define MAXIMUM_SAMPLES (size_t)2048 /* Typical operating system I/O buffer size */
 
