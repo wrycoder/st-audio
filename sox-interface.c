@@ -65,7 +65,7 @@ void show_name_and_runtime(sox_format_t * in)
   PWSTR msgbuf, filenamebuf;
 
   wchar_t *msg_template = L"%s ... %-15.15s\n";
-  size_t buffer_size = (wcslen(msg_template) + 20) * sizeof(WCHAR);
+  size_t buffer_size = (MAX_PATH + wcslen(msg_template) + 20) * sizeof(WCHAR);
   msgbuf = (PWSTR)CoTaskMemAlloc(buffer_size);
   ws = in->signal.length / max(in->signal.channels, 1);
   secs = (double)ws / max(in->signal.rate, 1);
