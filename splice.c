@@ -404,11 +404,30 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
       PAINTSTRUCT ps;
       HDC hdc = BeginPaint(hwnd, &ps);
+      HFONT hf;
+      long lfHeight;
       RECT rect;
-
+      HFONT g_hfFont = GetStockObject(DEFAULT_GUI_FONT);
+      // Calculate the number of pixels required for a 12-point font.
+      // MulDiv is a legacy function that simulates floating-point calculations
+      // using integers.
+      lfHeight = -MulDiv(12, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+      hf = CreateFont(lfHeight, 0, 0, 0, 0, FALSE, 0, 0, 0, 0, 0, 0, 0, L"Calibri");
+      if (hf)
+      {
+        DeleteObject(g_hfFont);
+        g_hfFont = hf;
+      }
+      else
+      {
+        MessageBox(hwnd, L"Font creation failed!", L"Error", MB_OK | MB_ICONEXCLAMATION);
+      }
       // All painting occurs here, between BeginPaint and EndPaint.
       FillRect(hdc, &ps.rcPaint, (HBRUSH) (COLOR_WINDOW+1));
+      HFONT hfOld = SelectObject(hdc, hf);
+      SetTextAlign(hdc, TA_TOP | TA_LEFT);
       GetClientRect(hwnd, &rect);
+      InflateRect(&rect, -TEXT_MARGIN_HORIZONTAL, -TEXT_MARGIN_VERTICAL);
       DrawTextEx(hdc,
         L"FILE SPLICER\n\nThis application splices all the .wav audio files in a directory. "\
           "The ordering of the files' contents in the output is determined by "\
@@ -417,9 +436,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
           "The output file (spliced-audio.wav) will be placed in the same folder as the input files.\n\n"\
           "To get started, click 'Folder | Select' on the menu above.",
         -1, &rect,
-        DT_CENTER | DT_EDITCONTROL | DT_WORDBREAK,
+        DT_EDITCONTROL | DT_WORDBREAK,
         NULL
       );
+      SelectObject(hdc, hfOld);
       EndPaint(hwnd, &ps);
     }
     return 0;
