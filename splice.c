@@ -233,7 +233,7 @@ DWORD WINAPI SpliceThreadProc()
   load_and_sort_filenames(pszWorkingDirectory);
   if (filenames != NULL)
   {
-    //splice(filenames);
+    splice(filenames, count_files());
     wchar_t **current = filenames;
     while (*current != NULL)
     {
