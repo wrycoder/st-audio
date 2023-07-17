@@ -74,10 +74,10 @@ const char* convert_pwstr_to_const_char(PWSTR wideString)
   return buffer;
 }
 
-int count_files()
+size_t count_files()
 {
   size_t count = 0;
-  wchar_t **current = filenames;
+  char **current = filenames;
 
   while (*current != NULL)
   {
@@ -87,88 +87,45 @@ int count_files()
   return count;
 }
 
-void load_and_sort_filenames(PWSTR directory_path)
+void load_filenames(PWSTR directory_path)
 {
-  DIR* directory;
-  struct _wdirent* entry;
+  STRSAFE_LPSTR wav_wildcard = L"*.wav";
+  WIN32_FIND_DATA fdFile;
+  HANDLE hFind = NULL;
+  filenames = (char**)CoTaskMemAlloc(1 * sizeof(char*));
+
   int file_count = 0;
   sox_format_t * current_sound_file;
   PWSTR buffer = NULL;
-
-  directory = _wopendir(directory_path);
-  if (directory == NULL)
+  if((hFind = FindFirstFile(wav_wildcard, &fdFile)) != INVALID_HANDLE_VALUE)
   {
-    size_t dirPathLength = wcslen(directory_path);
-    buffer = (PWSTR)CoTaskMemAlloc((dirPathLength + 1) * sizeof(WCHAR));
-    wcscpy_s(buffer, sizeof(buffer), directory_path);
-    report_error(NULL, ST_ERROR, __FILE__, __LINE__);
-    CoTaskMemFree(buffer);
-    buffer = NULL;
-    return;
-  }
-
-  while ((entry = _wreaddir(directory)) != NULL)
-  {
-    const wchar_t* file_name = entry->d_name;
-    if (is_wav_file(file_name))
-    {
-      wchar_t file_path[(MAX_PATH * sizeof(WCHAR)) + 1];
-      StringCbPrintfW(file_path, (MAX_PATH * sizeof(WCHAR)), L"%s\\%s", directory_path, file_name);
-      DWORD file_attributes = GetFileAttributes(file_path);
-      if (file_attributes == 0)
-      {
-        MessageBox(NULL, L"Invalid file_attributes", L"ERROR", MB_OK);
-      }
-      if (file_attributes == -1)
-      {
-        MessageBox(NULL, L"File not found", L"ERROR", MB_OK);
-      }
-      if (file_attributes != INVALID_FILE_ATTRIBUTES &&
-          !(file_attributes & FILE_ATTRIBUTE_DIRECTORY))
+    do {
+      /* FindFirstFile will always return "." and ".."
+       * as the first two directories. */
+      if(strcmp(fdFile.cFileName, ".") != 0
+          && strcmp(fdFile.cFileName, "..") != 0)
       {
         file_count++;
+        filenames = (char**)CoTaskMemRealloc(filenames, file_count * sizeof(char *));
+        filenames[file_count - 1] = (char *)malloc(wcslen(fdFile.cFileName) + 1);
+        StringCbPrintfA(filenames[file_count - 1], (wcslen(fdFile.cFileName) + 1), 
+          "%s", convert_pwstr_to_const_char(fdFile.cFileName));
       }
     }
+    while(FindNextFile(hFind, &fdFile));
+    FindClose(hFind);
   }
 
-  // size_t buffer_size = (wcslen(L"File Count: ") + 10) * sizeof(WCHAR);
-  // PWSTR msgbuf = (PWSTR)CoTaskMemAlloc(buffer_size);
-  // StringCbPrintfW(msgbuf, buffer_size, L"File Count: %d", file_count);
-  // MessageBox(NULL, msgbuf, L"SANITY CHECK", MB_OK);
-  // CoTaskMemFree(msgbuf);
+  size_t buffer_size = (wcslen(L"File Count: ") + 10) * sizeof(WCHAR);
+  PWSTR msgbuf = (PWSTR)CoTaskMemAlloc(buffer_size);
+  StringCbPrintfW(msgbuf, buffer_size, L"File Count: %d", file_count);
+  MessageBox(NULL, msgbuf, L"SANITY CHECK", MB_OK);
+  CoTaskMemFree(msgbuf);
 
-  filenames = (wchar_t**)CoTaskMemAlloc(file_count * sizeof(wchar_t));
-
-  _wrewinddir(directory);
-
-  int i = 0;
-  while((entry = _wreaddir(directory)) != NULL)
-  {
-    const wchar_t* file_name = entry->d_name;
-    if (is_wav_file(file_name))
-    {
-      wchar_t file_path[(MAX_PATH * sizeof(WCHAR)) + 1];
-      StringCbPrintfW(file_path, (MAX_PATH * sizeof(WCHAR)), L"%s\\%s", directory_path, file_name);
-      DWORD file_attributes = GetFileAttributes(file_path);
-      if (file_attributes != INVALID_FILE_ATTRIBUTES &&
-          !(file_attributes & FILE_ATTRIBUTE_DIRECTORY))
-      {
-        filenames[i] = (wchar_t*)CoTaskMemAlloc((MAX_PATH * sizeof(wchar_t)) + 1);
-        StringCbPrintfW(filenames[i], MAX_PATH * sizeof(wchar_t), file_path);
-        i++;
-      }
-    }
-  }
-
-  qsort(filenames, file_count, sizeof(wchar_t *), compare_filenames);
+  qsort(filenames, file_count, sizeof(char *), compare_filenames);
 
   /* Add a final null terminator so we can calculate the number of files */
   filenames[file_count] = NULL;
-  _wclosedir(directory);
-
-  // char numstring[25];
-  // StringCbPrintfA(numstring, 24, "filecount: %d", count_files());
-  // report_current_action(NULL, numstring);
 }
 
 /**
