@@ -33,10 +33,10 @@ char ** filenames;
  */
 int compare_filenames(const void* a, const void* b)
 {
-  return strcmp(*(const wchar_t**)a, *(const wchar_t**)b);
+  return strncmp(*(const char**)a, *(const char**)b, 2);
 }
 
-int ends_with(const wchar_t *str, const wchar_t *suffix)
+int ends_with(const TCHAR *str, const TCHAR *suffix)
 {
   if (!str || !suffix)
     return 0;
@@ -47,7 +47,7 @@ int ends_with(const wchar_t *str, const wchar_t *suffix)
   return wcsncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
 }
 
-int is_wav_file(const wchar_t *str)
+int is_wav_file(const TCHAR *str)
 {
   if (ends_with(str, L".wav") || ends_with(str, L".WAV"))
     return 1;
