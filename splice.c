@@ -383,7 +383,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         L"FILE SPLICER\n\nThis application splices all the .wav audio files in a directory. "\
           "The ordering of the files' contents in the output is determined by "\
           "the names of the files, so please make sure each filename starts with the correct track number. "\
-          "Leading zeroes will be ignored. You can splice up to fifty files in a single directory.\n\n"\
+          "File names for tracks 1 through 9 must be zero-padded. You can splice up to fifty files in a single directory.\n\n"\
           "The output file (spliced-audio.wav) will be placed in the same folder as the input files.\n\n"\
           "To get started, click 'Folder | Select' on the menu above.",
         -1, &rect,
