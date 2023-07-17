@@ -23,7 +23,9 @@
 #include <stdio.h>
 #include <assert.h>
 
-wchar_t * * filenames;
+static char *starting_directory[sizeof(TCHAR) * MAX_PATH + 1];
+static char *working_directory[sizeof(TCHAR) * MAX_PATH + 1];
+char ** filenames;
 
 /**
  * General Utilities
