@@ -160,7 +160,7 @@ void report_error(HWND hwnd, int errcode, char * file, int line_number)
 {
   PWSTR filenamebuf;
 
-  wchar_t *msg_template = L"ERROR %d at line %d in %s\n";
+  TCHAR *msg_template = L"ERROR %d at line %d in %s\n";
   int filename_length = MultiByteToWideChar(CP_ACP, 0, file, -1, NULL, 0);
   filenamebuf = (PWSTR)CoTaskMemAlloc(filename_length * sizeof(WCHAR));
   MultiByteToWideChar(CP_ACP, 0, file, -1, filenamebuf, filename_length);
