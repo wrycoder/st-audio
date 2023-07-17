@@ -321,6 +321,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                       report_error(hwnd, ST_ERROR, __FILE__, __LINE__);
                     }
                     restore_cursor();
+                    CoTaskMemFree(pszFolderPath);
                   } else {
                     report_error(hwnd, filePathLength, __FILE__, __LINE__);
                   }
@@ -340,6 +341,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     break;
   case WM_CLOSE:
     {
+      SetCurrentDirectory(starting_directory);
       DestroyWindow(hwnd);
     }
     break;
