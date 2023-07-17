@@ -57,7 +57,7 @@ int is_wav_file(const TCHAR *str)
 const char* convert_pwstr_to_const_char(PWSTR wideString)
 {
   int length = WideCharToMultiByte(CP_UTF8, 0, wideString, -1, NULL, 0, NULL, NULL);
-  char* buffer = (char*)malloc(length * sizeof(char));
+  char* buffer = (char*)malloc(length * sizeof(char) + 1);
   if (buffer == NULL)
   {
     report_error(NULL, ST_ERROR, __FILE__, __LINE__);
