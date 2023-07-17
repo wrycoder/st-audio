@@ -53,11 +53,13 @@ static sox_signalinfo_t st_default_signalinfo = {
 
 void show_stats(sox_format_t * in);
 void show_name_and_runtime(sox_format_t * in);
-wchar_t const * str_time(double seconds);
+TCHAR const * str_time(double seconds);
 void report_error(HWND hwnd, int errcode, char* file, int line_number);
 void report_current_action(HWND, const char*);
 const char* convert_pwstr_to_const_char(PWSTR wideString);
-void trim_silence(wchar_t * filename, char * duration, char * threshold);
+void trim_silence(TCHAR * filename, char * duration, char * threshold);
 void splice();
 static int sox_quit_called;
+extern char * * filenames;
 int cleanup();
+size_t count_files();
