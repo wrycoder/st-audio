@@ -184,24 +184,14 @@ void report_current_action(HWND hwnd, const char* message)
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-PWSTR              pszWorkingDirectory;
-
 /* Splice the audio files using SoX */
 DWORD WINAPI SpliceThreadProc()
 {
-  load_and_sort_filenames(pszWorkingDirectory);
+  load_filenames(working_directory);
   if (filenames != NULL)
   {
-    splice(filenames, count_files());
-    wchar_t **current = filenames;
-    while (*current != NULL)
-    {
-      CoTaskMemFree(*current);
-      ++current;
-    }
-    CoTaskMemFree(filenames);
+    splice();
   }
-
   return 0;
 }
 
@@ -209,7 +199,8 @@ DWORD WINAPI SpliceThreadProc()
 
 int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-  const wchar_t CLASS_NAME[] = L"Splicing Audio Files";
+  const TCHAR CLASS_NAME[] = L"Splicing Audio Files";
+
   filenames = NULL;
 
   WNDCLASS wc = { };
@@ -303,24 +294,23 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             pFileOpenDialog->lpVtbl->GetOptions(pFileOpenDialog, &dwOptions);
             pFileOpenDialog->lpVtbl->SetOptions(pFileOpenDialog, dwOptions | FOS_PICKFOLDERS | FOS_FILEMUSTEXIST);
             pFileOpenDialog->lpVtbl->SetOkButtonLabel(pFileOpenDialog, L"Select Folder");
-
+            GetCurrentDirectory((sizeof(TCHAR) * MAX_PATH), starting_directory);
             hr = pFileOpenDialog->lpVtbl->Show(pFileOpenDialog, hwnd);
             if (SUCCEEDED(hr))
             {
               IShellItem* pSelectedItem = NULL;
+              TCHAR *pszFolderPath = NULL;
               hr = pFileOpenDialog->lpVtbl->GetResult(pFileOpenDialog, &pSelectedItem);
               if (SUCCEEDED(hr))
               {
-                PWSTR pszFolderPath = NULL;
                 hr = pSelectedItem->lpVtbl->GetDisplayName(pSelectedItem, SIGDN_FILESYSPATH, &pszFolderPath);
-                size_t filePathLength = wcslen(pszFolderPath);
-                pszWorkingDirectory = (PWSTR)CoTaskMemAlloc((filePathLength + 1) * sizeof(WCHAR));
-                if (pszWorkingDirectory != NULL)
+                if (SUCCEEDED(hr))
                 {
-                  wcscpy_s(pszWorkingDirectory, filePathLength + 1, pszFolderPath);
+                  int filePathLength = (wcslen(pszFolderPath) + 1) * sizeof(TCHAR);
+                  wcscpy_s(working_directory, filePathLength, pszFolderPath);
                   if (filePathLength < MAX_PATH)
                   {
-                    SetCurrentDirectory(pszWorkingDirectory);
+                    SetCurrentDirectory(working_directory);
                     DWORD dwThreadId;
                     set_wait_cursor();
                     HANDLE hThread = CreateThread(NULL, 0, SpliceThreadProc, NULL, 0, &dwThreadId);
