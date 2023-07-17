@@ -317,6 +317,16 @@ int cleanup()
     }
     while(FindNextFile(hFind, &fdFile)); /* Find the next file. */
   }
+
+  if (filenames != NULL)
+  {
+    while (*filenames != NULL)
+    {
+      CoTaskMemFree(*filenames);
+      ++filenames;
+    }
+    CoTaskMemFree(filenames);
+  }
   return 0;
 }
 
