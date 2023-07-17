@@ -37,9 +37,9 @@ typedef struct {
 
 static sox_format_t * in, * out;
 
-wchar_t const * str_time(double seconds)
+TCHAR const * str_time(double seconds)
 {
-  static wchar_t string[16][50];
+  static TCHAR string[16][50];
   size_t cchDest = 50;
   static int i;
   LPCTSTR pszFormatWithHours = L"%02i:%02i:%05.2f";
@@ -51,9 +51,9 @@ wchar_t const * str_time(double seconds)
   i = (i+1) & 15;
   if (hours > 0)
   {
-    StringCchPrintfW(string[i], cchDest * sizeof(wchar_t), pszFormatWithHours, hours, mins, seconds);
+    StringCchPrintfW(string[i], cchDest * sizeof(TCHAR), pszFormatWithHours, hours, mins, seconds);
   } else {
-    StringCchPrintfW(string[i], cchDest * sizeof(wchar_t), pszFormat, mins, seconds);
+    StringCchPrintfW(string[i], cchDest * sizeof(TCHAR), pszFormat, mins, seconds);
   }
   return string[i];
 }
@@ -64,7 +64,7 @@ void show_name_and_runtime(sox_format_t * in)
   uint64_t ws;
   PWSTR msgbuf, filenamebuf;
 
-  wchar_t *msg_template = L"%s ... %-15.15s\n";
+  TCHAR *msg_template = L"%s ... %-15.15s\n";
   size_t buffer_size = (MAX_PATH + wcslen(msg_template) + 20) * sizeof(WCHAR);
   msgbuf = (PWSTR)CoTaskMemAlloc(buffer_size);
   ws = in->signal.length / max(in->signal.channels, 1);
@@ -78,9 +78,9 @@ void show_name_and_runtime(sox_format_t * in)
   CoTaskMemFree(msgbuf);
 }
 
-void trim_silence(wchar_t * filename, char * duration, char * threshold)
+void trim_silence(TCHAR * filename, char * duration, char * threshold)
 {
-  wchar_t szNewPath[MAX_PATH * sizeof(wchar_t)];
+  TCHAR szNewPath[MAX_PATH * sizeof(TCHAR)];
   unsigned long sample_count = 0L;
   sox_effects_chain_t * chain;
   sox_effect_t * e;
@@ -162,166 +162,100 @@ void trim_silence(wchar_t * filename, char * duration, char * threshold)
  *
  * I think example4.c in the libsox package is closest to what I am trying to do.
  */
-void splice(wchar_t * * wfile_names, int file_count)
+void splice()
 {
-  sox_effect_t* splice_effect;
-  sox_effects_chain_t * chain;
-  sox_format_t** in_files;
-  sox_format_t* out_file;
-  char * * file_names = NULL;
-  sox_sample_t samples[MAXIMUM_SAMPLES]; /* Temporary store while copying */
-  size_t number_read;
-  const char * current_filename;
-  int sox_result = SOX_SUCCESS;
-  int i;
-  uint64_t first_file_ws; /* length of first file in samples */
-  double first_file_secs; /* length of first file in seconds */
+  sox_format_t * output = NULL;
+  size_t i, sox_result;
+  for (i = 0; i < count_files(); ++i)
+  {
+    report_current_action(NULL, filenames[i]);
+  }
 
-  // For testing...
-  const int msg_length = 500;
-  wchar_t status_msg[msg_length + 1];
-  int filename_length;
-  wchar_t *filenamebuf;
-  // End of testing variables...
+  for (i = 0; i < count_files(); ++i)
+  {
+    sox_format_t * input;
+    static sox_signalinfo_t signal; /* static quashes 'uninitialized' warning. */
 
-  file_names = malloc(sizeof(char *) * file_count);
+    /* The (maximum) number of samples that we shall read/write at a time;
+     * chosen as a rough match to typical operating system I/O buffer size: */
+    #define MAX_SAMPLES (size_t)2048
+    sox_sample_t samples[MAX_SAMPLES]; /* Temporary store whilst copying */
+    size_t number_read, number_written;
 
-  if (file_names == NULL)
+    /* Open this input file: */
+
+    input = sox_open_read(filenames[i], NULL, NULL, NULL);
+    if (input == NULL)
+    {
+      report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+      cleanup();
+      return;
+    }
+    if (i == 0) /* If this is the first input file... */
+    {
+      /* report_current_action(NULL, "First file"); */
+      /* Open the output file using the same signal and encoding character-
+       * istics as the first input file.  Note that here, input->signal.length
+       * will not be equal to the output file length so we are relying on
+       * libSoX to set the output length correctly (i.e. non-seekable output
+       * is not catered for) */
+      output = sox_open_write(DEFAULT_OUTPUT_FILENAME, 
+        &input->signal, &input->encoding, NULL, NULL, NULL);
+      if (output == NULL)
+      {
+        report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+        cleanup();
+        return;
+      }
+      /* Also, we'll store the signal characteristics of the first file
+       * so that we can check that these match those of the other inputs: */
+      signal = input->signal;
+    } else { /* Second or subsequent input file... */
+      /* report_current_action(NULL, "Second file"); */
+      /* Check that this input file's signal matches that of the first file: */
+      if ((input->signal.channels != signal.channels) ||
+                          (input->signal.rate != signal.rate))
+      {
+        report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+        cleanup();
+        return;
+      }
+    }
+    /* Copy all of the audio from this input file to the output file: */
+    while ((number_read = sox_read(input, samples, MAX_SAMPLES)))
+    {
+      number_written = sox_write(output, samples, number_read);
+      if(number_written != number_read)
+      {
+        report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+        cleanup();
+        return;
+      }
+    }
+    sox_result = sox_close(input);
+    if(sox_result != SOX_SUCCESS)
+    {
+      report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+      cleanup();
+      return;
+    }
+  }
+  sox_result = sox_close(output);
+  if(sox_result != SOX_SUCCESS)
   {
     report_error(NULL, ST_ERROR, __FILE__, __LINE__);
     cleanup();
     return;
   }
-
-  for (i = 0; i < file_count; ++i)
-  {
-    current_filename = convert_pwstr_to_const_char(wfile_names[i]);
-    if (current_filename == NULL)
-    {
-      report_error(NULL, ST_ERROR, __FILE__, __LINE__);
-      cleanup();
-      return;
-    }
-    file_names[i] = (char *)malloc((sizeof(char) * strlen(current_filename)) + 1);
-    if (file_names[i] == NULL)
-    {
-      report_error(NULL, ST_ERROR, __FILE__, __LINE__);
-      cleanup();
-      return;
-    }
-    StringCbCopyA(file_names[i], strlen(current_filename) + 1, current_filename);
-  }
-
-  in_files = (sox_format_t**)lsx_malloc(file_count * sizeof(sox_format_t*));
-  if (in_files == NULL)
-  {
-    report_error(NULL, SOX_LIB_ERROR, __FILE__, __LINE__);
-    cleanup();
-    return;
-  }
-  for (size_t n = 0; n < file_count; ++n)
-  {
-    in_files[n] = sox_open_read(file_names[n], &st_default_signalinfo, NULL, NULL);
-    if (in_files[n] == NULL)
-    {
-      report_error(NULL, SOX_LIB_ERROR, __FILE__, __LINE__);
-      for (size_t j = 0; j < n; ++j)
-        sox_close(in_files[j]);
-      free(in_files);
-      cleanup();
-      return;
-    }
-    filename_length = MultiByteToWideChar(CP_ACP, 0, in_files[n]->filename, -1, NULL, 0);
-    filenamebuf = (PWSTR)CoTaskMemAlloc(filename_length * sizeof(WCHAR));
-    MultiByteToWideChar(CP_ACP, 0, in_files[n]->filename, -1, filenamebuf, filename_length);
-    uint64_t ws = in_files[n]->signal.length / max(in_files[n]->signal.channels, 1);
-    double secs = (double)ws / max(in_files[n]->signal.rate, 1);
-
-    StringCchPrintfW(status_msg, msg_length * sizeof(wchar_t), 
-      L"FILE: %s | ENCODING: %d | SAMPLESIZE: %u | RATE: %g | CHANNELS: %u | RUNTIME: %s", 
-      filenamebuf,
-      in_files[n]->encoding.encoding,
-      in_files[n]->encoding.bits_per_sample,
-      in_files[n]->signal.rate,
-      in_files[n]->signal.channels,
-      str_time(secs)
-    );
-    report_current_action(NULL, convert_pwstr_to_const_char(status_msg));
-    CoTaskMemFree(filenamebuf);
-  }
-  first_file_ws = in_files[0]->signal.length / max(in_files[0]->signal.channels, 1);
-  first_file_secs = (double)first_file_ws / max(in_files[0]->signal.rate, 1);
-  out_file = sox_open_write(DEFAULT_OUTPUT_FILENAME, &in_files[0]->signal, NULL, NULL, NULL, NULL);
-  if (out_file == NULL)
-  {
-    report_error(NULL, SOX_LIB_ERROR, __FILE__, __LINE__);
-    for (size_t x = 0; x < file_count; ++x)
-      sox_close(in_files[x]);
-    free(in_files);
-    cleanup();
-    return;
-  }
-  // status_msg[msg_length]
-
-//  filename_length = MultiByteToWideChar(CP_ACP, 0, out_file->filename, -1, NULL, 0);
-//  filenamebuf = (PWSTR)CoTaskMemAlloc(filename_length * sizeof(WCHAR));
-//  MultiByteToWideChar(CP_ACP, 0, out_file->filename, -1, filenamebuf, filename_length);
-//
-//  StringCchPrintfW(status_msg, msg_length * sizeof(wchar_t), 
-//    L"FILE: %s | ENCODING: %d | SAMPLESIZE: %u | RATE: %g | CHANNELS: %u", 
-//    filenamebuf,
-//    out_file->encoding.encoding,
-//    out_file->encoding.bits_per_sample,
-//    out_file->signal.rate,
-//    out_file->signal.channels
-//  );
-//  report_current_action(NULL, convert_pwstr_to_const_char(status_msg));
-//  CoTaskMemFree(filenamebuf);
-
-  chain = sox_create_effects_chain(&in_files[0]->encoding, &out_file->encoding);
-  report_current_action(NULL, "Now adding input effect to first file");
-  sox_add_effect(chain, sox_create_effect(sox_find_effect("input")), &in_files[0]->signal, &in_files[0]->signal);
-  splice_effect = sox_create_effect(sox_find_effect("splice"));
-  /*  sox babayaga.wav greatgate.wav _merged.wav splice -q `soxi -D babayaga.wav`,0.1 */
-  char file_count_str[10];
-  snprintf(file_count_str, sizeof(file_count_str), "%d", file_count);
-  char* splice_args[] = { "-q", str_time(first_file_secs), DEFAULT_SPLICE_OVERLAP, NULL };
-  report_current_action(NULL, "Now adding splice options");
-  int args_added = sox_effect_options(splice_effect, 3, splice_args);
-  report_current_action(NULL, "Now adding splice effect to first input file");
-  sox_add_effect(chain, splice_effect, &in_files[0]->signal, &in_files[0]->signal);
-  report_current_action(NULL, "Now adding output effect to last file");
-  sox_add_effect(chain, sox_create_effect(sox_find_effect("output")), &in_files[file_count-1]->signal, &out_file->signal);
-  report_current_action(NULL, "About to flow");
-  int result = sox_flow_effects(chain, NULL, NULL);
-  if (result != SOX_SUCCESS)
-  {
-    const char* error_message = sox_strerror(result);
-    report_current_action(NULL, error_message);
-    report_error(NULL, result, __FILE__, __LINE__);
-  }
-  report_current_action(NULL, "It flowed");
-  sox_delete_effects_chain(chain);
-  for (size_t i = 0; i < file_count; ++i)
-    sox_close(in_files[i]);
-  free(in_files);
-  sox_close(out_file);
-
-  for (i = 0; i < file_count; ++i)
-  {
-    free((char*)(file_names[i]));
-  }
-
-  if (file_names != NULL)
-    free(file_names);
+  output = NULL;
 }
 
 /* All done; tidy up... */
 int cleanup()
 {
   STRSAFE_LPSTR sox_wildcard = L"libSoX.tmp*";
-  TCHAR szTempFileWildcard[MAX_PATH * sizeof(wchar_t)];
-  TCHAR szCurrentTempFileName[MAX_PATH * sizeof(wchar_t)];
+  TCHAR szTempFileWildcard[MAX_PATH * sizeof(TCHAR)];
+  TCHAR szCurrentTempFileName[MAX_PATH * sizeof(TCHAR)];
   WIN32_FIND_DATA fdFile;
   HANDLE hFind = NULL;
   size_t i;
