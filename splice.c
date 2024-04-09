@@ -33,7 +33,8 @@ char ** filenames;
  */
 int compare_filenames(const void* a, const void* b)
 {
-  return strncmp(*(const char**)a, *(const char**)b, 2);
+  size_t digits_to_compare = DEFAULT_TRACK_NUMER_WIDTH;
+  return strncmp(*(const char**)a, *(const char**)b, digits_to_compare);
 }
 
 int ends_with(const TCHAR *str, const TCHAR *suffix)

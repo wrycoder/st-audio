@@ -42,6 +42,7 @@
 #define DEFAULT_SPLICE_OVERLAP ".1"
 #define MAXIMUM_SPLICES 50
 #define MAXIMUM_SAMPLES (size_t)2048 /* Typical operating system I/O buffer size */
+#define DEFAULT_TRACK_NUMER_WIDTH 2
 
 static sox_signalinfo_t st_default_signalinfo = {
   44100,    /* samples per second */
