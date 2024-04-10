@@ -5,6 +5,7 @@
  * Global definitions and function prototypes for the Splice application.
  *
  */
+#pragma once
 
 #include <stdint.h>
 #include <math.h>
@@ -59,6 +60,7 @@ void report_error(HWND hwnd, int errcode, char* file, int line_number);
 void report_current_action(HWND, const char*);
 const char* convert_pwstr_to_const_char(PWSTR wideString);
 void trim_silence(TCHAR * filename, char * duration, char * threshold);
+double total_duration();
 void splice();
 static int sox_quit_called;
 extern char * * filenames;

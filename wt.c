@@ -1,15 +1,15 @@
-/* splice.c
+/* wt.c
  *
  * (c) 2023 Michael Toulouse
  *
- * Main entry point for the Splice application.
+ * Main entry point for the wt application.
  *
  */
 
 #define WINVER 0x0600
 #define _WIN32_WINNT 0x0600
 #include "sox.h"
-#include "splice.h"
+#include "wt.h"
 #include <stdlib.h>
 #include <errno.h>
 #include <shobjidl.h>
@@ -120,7 +120,7 @@ void load_filenames(PWSTR directory_path)
   size_t buffer_size = (wcslen(L"File Count: ") + 10) * sizeof(WCHAR);
   PWSTR msgbuf = (PWSTR)CoTaskMemAlloc(buffer_size);
   StringCbPrintfW(msgbuf, buffer_size, L"File Count: %d", file_count);
-  MessageBox(NULL, msgbuf, L"SANITY CHECK", MB_OK);
+  MessageBox(NULL, msgbuf, L"FILES SELECTED", MB_OK);
   CoTaskMemFree(msgbuf);
 
   qsort(filenames, file_count, sizeof(char *), compare_filenames);
@@ -185,14 +185,23 @@ void report_current_action(HWND hwnd, const char* message)
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-/* Splice the audio files using SoX */
-DWORD WINAPI SpliceThreadProc()
+/* Add up duration of the audio files using SoX */
+DWORD WINAPI DurationThreadProc()
 {
+  int const message_length = 200;
+  TCHAR message[message_length];
+  size_t cb_dest = message_length * sizeof(TCHAR);
+  TCHAR *msg_template = TEXT("TOTAL DURATION ... %s\n");
+  int result;
+
   load_filenames(working_directory);
   if (filenames != NULL)
   {
-    splice();
+    result = total_duration();
+    StringCbPrintf(message, cb_dest, msg_template, str_time(result));
+    MessageBox(NULL, message, L"RESULT", MB_OK);
   }
+  CoTaskMemFree(filenames);
   return 0;
 }
 
@@ -200,7 +209,7 @@ DWORD WINAPI SpliceThreadProc()
 
 int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-  const TCHAR CLASS_NAME[] = L"Splicing Audio Files";
+  const TCHAR CLASS_NAME[] = L"Audio File Timing";
 
   filenames = NULL;
 
@@ -224,7 +233,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
   HWND hwnd = CreateWindowEx(
     0,                      // Optional window styles
     CLASS_NAME,             // Window class
-    L"Splicing Audio",      // Window text
+    L"Audio Timing",        // Window text
     WS_OVERLAPPEDWINDOW,    // Window style
     // Size and position
     CW_USEDEFAULT, CW_USEDEFAULT, APP_WINDOW_WIDTH, APP_WINDOW_HEIGHT,
@@ -314,7 +323,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     SetCurrentDirectory(working_directory);
                     DWORD dwThreadId;
                     set_wait_cursor();
-                    HANDLE hThread = CreateThread(NULL, 0, SpliceThreadProc, NULL, 0, &dwThreadId);
+                    HANDLE hThread = CreateThread(NULL, 0, DurationThreadProc, NULL, 0, &dwThreadId);
                     if (hThread != NULL)
                     {
                       CloseHandle(hThread);
@@ -381,11 +390,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       GetClientRect(hwnd, &rect);
       InflateRect(&rect, -TEXT_MARGIN_HORIZONTAL, -TEXT_MARGIN_VERTICAL);
       DrawTextEx(hdc,
-        L"FILE SPLICER\n\nThis application splices all the .wav audio files in a directory. "\
-          "The ordering of the files' contents in the output is determined by "\
-          "the names of the files, so please make sure each filename starts with the correct track number. "\
-          "File names for tracks 1 through 9 must be zero-padded. You can splice up to fifty files in a single directory.\n\n"\
-          "The output file (spliced-audio.wav) will be placed in the same folder as the input files.\n\n"\
+        L"WAV TIMER\n\nThis application calculates the total duration of all .wav audio files in a directory. "\
+          "It can handle up to fifty files. The directory cannot contain anything but .wav files.\n\n"\
           "To get started, click 'Folder | Select' on the menu above.",
         -1, &rect,
         DT_EDITCONTROL | DT_WORDBREAK,
