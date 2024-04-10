@@ -6,7 +6,7 @@
  *
  */
 
-#include "splice.h"
+#include "wt.h"
 #include <strsafe.h>
 #include <assert.h>
 #include <sys/stat.h>
