@@ -150,6 +150,37 @@ void trim_silence(TCHAR * filename, char * duration, char * threshold)
   DeleteFileA("temp.wav");
 }
 
+double total_duration()
+{
+  size_t i, sox_result;
+  double secs = 0;
+  uint64_t ws;
+
+  for (i = 0; i < count_files(); ++i)
+  {
+    sox_format_t * input;
+
+    /* Open this input file: */
+    input = sox_open_read(filenames[i], NULL, NULL, NULL);
+    if (input == NULL)
+    {
+      report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+      cleanup();
+      return 0;
+    }
+    ws = input->signal.length / max(input->signal.channels, 1);
+    secs += (double)ws / max(input->signal.rate, 1);
+    sox_result = sox_close(input);
+    if(sox_result != SOX_SUCCESS)
+    {
+      report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+      cleanup();
+      return 0;
+    }
+  }
+  return secs;
+}
+
 /*
  * Splice audio files
  *
