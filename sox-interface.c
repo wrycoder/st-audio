@@ -42,8 +42,8 @@ TCHAR const * str_time(double seconds)
   static TCHAR string[16][50];
   size_t cchDest = 50;
   static int i;
-  LPCTSTR pszFormatWithHours = L"%02i:%02i:%05.2f";
-  LPCTSTR pszFormat = L"%02i:%05.2f";
+  LPCTSTR pszFormatWithHours = L"%02i:%02i:%02.0f";
+  LPCTSTR pszFormat = L"%02i:%02.0f";
   int hours, mins = seconds / 60;
   seconds -= mins * 60;
   hours = mins / 60;
