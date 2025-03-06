@@ -6,7 +6,7 @@
  *
  */
 
-#include "splice.h"
+#include "wt.h"
 #include <strsafe.h>
 #include <assert.h>
 #include <sys/stat.h>
@@ -42,8 +42,8 @@ TCHAR const * str_time(double seconds)
   static TCHAR string[16][50];
   size_t cchDest = 50;
   static int i;
-  LPCTSTR pszFormatWithHours = L"%02i:%02i:%05.2f";
-  LPCTSTR pszFormat = L"%02i:%05.2f";
+  LPCTSTR pszFormatWithHours = L"%02i:%02i:%02.0f";
+  LPCTSTR pszFormat = L"%02i:%02.0f";
   int hours, mins = seconds / 60;
   seconds -= mins * 60;
   hours = mins / 60;
@@ -148,6 +148,37 @@ void trim_silence(TCHAR * filename, char * duration, char * threshold)
   StringCchPrintf(szNewPath, sizeof(szNewPath)/sizeof(szNewPath[0]), TEXT("%s"), convert_pwstr_to_const_char(filename));
   CopyFileA("temp.wav", szNewPath, FALSE);
   DeleteFileA("temp.wav");
+}
+
+double total_duration()
+{
+  size_t i, sox_result;
+  double secs = 0;
+  uint64_t ws;
+
+  for (i = 0; i < count_files(); ++i)
+  {
+    sox_format_t * input;
+
+    /* Open this input file: */
+    input = sox_open_read(filenames[i], NULL, NULL, NULL);
+    if (input == NULL)
+    {
+      report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+      cleanup();
+      return 0;
+    }
+    ws = input->signal.length / max(input->signal.channels, 1);
+    secs += (double)ws / max(input->signal.rate, 1);
+    sox_result = sox_close(input);
+    if(sox_result != SOX_SUCCESS)
+    {
+      report_error(NULL, ST_ERROR, __FILE__, __LINE__);
+      cleanup();
+      return 0;
+    }
+  }
+  return secs;
 }
 
 /*
